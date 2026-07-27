@@ -1,5 +1,6 @@
 <template>
-  <div class="bg-slate-950 min-h-[calc(100vh-4rem)] p-6 space-y-6">
+  <div class="bg-slate-950 min-h-[calc(100vh-4rem)]">
+    <div class="max-w-7xl w-full mx-auto p-6 space-y-6">
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
@@ -346,6 +347,7 @@
           </button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>

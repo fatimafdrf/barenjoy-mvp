@@ -1,5 +1,6 @@
 <template>
-  <div class="bg-app-background min-h-[calc(100vh-4rem)] p-6 text-app-text space-y-6">
+  <div class="bg-app-background min-h-[calc(100vh-4rem)]">
+    <div class="max-w-7xl w-full mx-auto p-6 text-app-text space-y-6">
     <!-- Header with greeting -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
@@ -221,6 +222,7 @@
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   </div>
 </template>

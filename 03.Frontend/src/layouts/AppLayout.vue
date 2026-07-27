@@ -128,7 +128,7 @@
 
       <!-- View Content -->
       <main class="flex-1 min-h-[calc(100vh-4rem)]">
-        <div class="max-w-7xl w-full mx-auto">
+        <div class="w-full">
           <router-view v-slot="{ Component }">
             <transition name="fade" mode="out-in">
               <component :is="Component" />
