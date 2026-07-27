@@ -1,33 +1,29 @@
 <template>
-  <div class="min-h-screen bg-slate-950 flex text-slate-100 font-sans">
+  <div class="min-h-screen bg-app-background flex text-app-text font-sans">
     <!-- Mobile Sidebar Backdrop -->
     <div 
       v-if="mobileOpen" 
       @click="mobileOpen = false" 
-      class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
+      class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-40 lg:hidden"
     ></div>
 
     <!-- Sidebar -->
     <aside 
       :class="[
-        'fixed inset-y-0 left-0 z-50 w-64 glass border-r border-slate-800/80 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-screen',
+        'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-app-border flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-screen shadow-sm',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
     >
       <div>
         <!-- Logo -->
-        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-800/50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-app-border">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/25">
-              <span class="font-extrabold text-slate-950 text-lg">B</span>
-            </div>
-            <div>
-              <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">Barenjoy</h1>
-              <p class="text-[10px] text-amber-500 uppercase tracking-widest font-semibold">SaaS RESTAURANTE</p>
-            </div>
+            <h1 class="font-extrabold text-2xl tracking-tight text-app-primary">
+              Siply
+            </h1>
           </div>
           
-          <button @click="mobileOpen = false" class="lg:hidden p-1 text-slate-400 hover:text-white">
+          <button @click="mobileOpen = false" class="lg:hidden p-1 text-slate-500 hover:text-slate-800">
             <i class="pi pi-times"></i>
           </button>
         </div>
@@ -38,15 +34,16 @@
             v-for="item in navItems" 
             :key="item.to" 
             :to="item.to" 
+            active-class="siply-nav-active"
             @click="mobileOpen = false"
-            class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-200"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:text-app-text hover:bg-slate-50 transition-all duration-200"
           >
             <component :is="item.icon" class="w-5 h-5" />
             <span class="font-medium text-sm">{{ item.name }}</span>
             <!-- Badge if it represents live status -->
             <span 
               v-if="item.badge" 
-              class="ml-auto px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-slate-950"
+              class="ml-auto px-2 py-0.5 text-[10px] font-bold rounded-full bg-app-primary text-white"
             >
               {{ item.badge }}
             </span>
@@ -55,15 +52,15 @@
       </div>
 
       <!-- User Profile Box -->
-      <div class="p-4 border-t border-slate-800/50">
-        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+      <div class="p-4 border-t border-app-border">
+        <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-app-border">
           <!-- Avatar -->
-          <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 font-bold text-amber-500">
+          <div class="w-10 h-10 rounded-full bg-app-primary-soft flex items-center justify-center border border-app-primary/20 font-bold text-app-primary">
             {{ userInitials }}
           </div>
           
           <div class="min-w-0 flex-1">
-            <h4 class="text-sm font-semibold text-slate-200 truncate">{{ authStore.user?.name }}</h4>
+            <h4 class="text-sm font-semibold text-app-text truncate">{{ authStore.user?.name }}</h4>
             <!-- Role Badge -->
             <span :class="['inline-block text-[10px] px-2 py-0.5 rounded-md font-bold mt-0.5 uppercase tracking-wider', roleBadgeClass]">
               {{ roleLabel }}
@@ -73,7 +70,7 @@
           <!-- Logout Button -->
           <button 
             @click="handleLogout" 
-            class="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors"
+            class="p-2 text-slate-500 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
             title="Cerrar Sesión"
           >
             <i class="pi pi-power-off"></i>
@@ -85,23 +82,23 @@
     <!-- Main Content Container -->
     <div class="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen">
       <!-- Top Header -->
-      <header class="h-16 flex items-center justify-between px-6 border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
+      <header class="h-16 flex items-center justify-between px-6 border-b border-app-border bg-white/90 backdrop-blur-md sticky top-0 z-30 shadow-sm">
         <div class="flex items-center gap-4">
           <!-- Hamburger toggle for mobile -->
           <button 
             @click="mobileOpen = true" 
-            class="lg:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+            class="lg:hidden p-2 text-slate-600 hover:text-slate-950 rounded-lg hover:bg-slate-100"
           >
             <i class="pi pi-bars text-xl"></i>
           </button>
           
           <!-- Venue Selector -->
           <div class="flex items-center gap-2">
-            <i class="pi pi-building text-amber-500"></i>
+            <i class="pi pi-building text-app-primary"></i>
             <select 
               :value="localesStore.activeLocaleId"
               @change="(e) => localesStore.switchLocale((e.target as HTMLSelectElement).value)"
-              class="bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-lg focus:ring-amber-500 focus:border-amber-500 block p-2 pr-8 cursor-pointer focus:outline-none"
+              class="bg-white border border-app-border text-app-text text-sm rounded-lg focus:ring-app-primary focus:border-app-primary block p-2 pr-8 cursor-pointer focus:outline-none"
             >
               <option 
                 v-for="locale in localesStore.locales" 
@@ -117,25 +114,27 @@
         <!-- Header Actions -->
         <div class="flex items-center gap-4">
           <!-- Live Indicator -->
-          <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20">
-            <span class="w-2 h-2 rounded-full bg-teal-500 animate-ping"></span>
-            <span class="text-xs text-teal-400 font-semibold uppercase tracking-wider">Live Sync</span>
+          <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span class="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Live Sync</span>
           </div>
 
           <!-- Quick System View Roles list -->
-          <div class="text-xs text-slate-400 hidden xl:block">
-            Modo: <span class="text-amber-500 font-semibold">{{ roleLabel }}</span>
+          <div class="text-xs text-app-text-muted hidden xl:block">
+            Modo: <span class="text-app-primary font-semibold">{{ roleLabel }}</span>
           </div>
         </div>
       </header>
 
       <!-- View Content -->
-      <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
+      <main class="flex-1 bg-slate-950 min-h-[calc(100vh-4rem)]">
+        <div class="p-6 max-w-7xl w-full mx-auto">
+          <router-view v-slot="{ Component }">
+            <transition name="fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </div>
       </main>
     </div>
   </div>
@@ -207,11 +206,11 @@ const roleLabel = computed(() => {
 
 const roleBadgeClass = computed(() => {
   const role = authStore.user?.role
-  if (role === 'admin') return 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-  if (role === 'waiter') return 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-  if (role === 'kitchen') return 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-  if (role === 'bar') return 'bg-violet-500/10 text-violet-500 border border-violet-500/20'
-  return 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+  if (role === 'admin') return 'bg-app-primary-soft text-app-primary border border-app-primary/20'
+  if (role === 'waiter') return 'bg-blue-50 text-blue-600 border border-blue-200/60'
+  if (role === 'kitchen') return 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+  if (role === 'bar') return 'bg-violet-50 text-violet-600 border border-violet-200/60'
+  return 'bg-slate-50 text-slate-600 border border-slate-200'
 })
 
 const handleLogout = () => {
@@ -219,6 +218,16 @@ const handleLogout = () => {
   router.push({ name: 'login' })
 }
 </script>
+
+<style scoped>
+.siply-nav-active {
+  background-color: var(--color-app-primary-soft);
+  color: var(--color-app-primary);
+  box-shadow: inset 3px 0 0 var(--color-app-primary);
+  font-weight: 600;
+  border-left: 0;
+}
+</style>
 
 <style>
 /* Page transition animation */
