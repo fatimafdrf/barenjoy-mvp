@@ -5,7 +5,7 @@
       <div class="flex justify-between items-center">
         <div>
           <h2 class="text-3xl font-extrabold tracking-tight text-app-text">Locales & Sucursales</h2>
-          <p class="text-sm text-app-text-muted mt-1">Administración de sucursales del grupo Barenjoy</p>
+          <p class="text-sm text-app-text-muted mt-1">Administración de sucursales del grupo Siply</p>
         </div>
         <button
           @click="showAddDialog = true"
@@ -122,7 +122,7 @@
                 v-model="newForm.name"
                 required
                 type="text"
-                placeholder="Ej. Barenjoy Retiro"
+                placeholder="Ej. Siply Retiro"
                 class="w-full bg-slate-50 border border-app-border text-app-text rounded-xl p-3 text-sm focus:outline-none focus:border-app-primary transition-colors"
               />
             </div>

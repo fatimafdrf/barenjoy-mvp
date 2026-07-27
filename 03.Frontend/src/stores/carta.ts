@@ -32,7 +32,7 @@ export const useCartaStore = defineStore('carta', () => {
     },
     {
       id: 'm2',
-      name: 'Bravas Barenjoy',
+      name: 'Bravas Siply',
       description: 'Patatas crujientes con salsa brava casera ahumada y alioli de ajo asado.',
       price: 6.9,
       category: 'tapas',
@@ -51,7 +51,7 @@ export const useCartaStore = defineStore('carta', () => {
     {
       id: 'm4',
       name: 'Hamburguesa Dry Aged',
-      description: '200g de carne madurada, queso cheddar fundido, bacon crujiente y salsa especial Barenjoy.',
+      description: '200g de carne madurada, queso cheddar fundido, bacon crujiente y salsa especial Siply.',
       price: 14.5,
       category: 'platos',
       allergens: ['Gluten', 'Lácteos'],

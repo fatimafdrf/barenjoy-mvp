@@ -23,7 +23,7 @@ const routes = [
         path: 'login',
         name: 'login',
         component: LoginView,
-        meta: { title: 'Iniciar Sesión - Barenjoy' }
+        meta: { title: 'Iniciar Sesión - Siply' }
       }
     ]
   },
@@ -36,37 +36,37 @@ const routes = [
         path: '',
         name: 'dashboard',
         component: DashboardView,
-        meta: { title: 'Dashboard - Barenjoy' }
+        meta: { title: 'Dashboard - Siply' }
       },
       {
         path: 'locales',
         name: 'locales',
         component: LocalesView,
-        meta: { title: 'Locales - Barenjoy' }
+        meta: { title: 'Locales - Siply' }
       },
       {
         path: 'mesas',
         name: 'mesas',
         component: MesasView,
-        meta: { title: 'Mapa de Mesas - Barenjoy' }
+        meta: { title: 'Mapa de Mesas - Siply' }
       },
       {
         path: 'carta',
         name: 'carta',
         component: CartaView,
-        meta: { title: 'Carta & Menú - Barenjoy' }
+        meta: { title: 'Carta & Menú - Siply' }
       },
       {
         path: 'cocina',
         name: 'cocina',
         component: CocinaView,
-        meta: { title: 'Pantalla de Cocina - Barenjoy' }
+        meta: { title: 'Pantalla de Cocina - Siply' }
       },
       {
         path: 'barra',
         name: 'barra',
         component: BarraView,
-        meta: { title: 'Pantalla de Barra - Barenjoy' }
+        meta: { title: 'Pantalla de Barra - Siply' }
       }
     ]
   },
