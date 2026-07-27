@@ -1,17 +1,17 @@
 <template>
-  <div class="space-y-6">
+  <div class="bg-app-background min-h-[calc(100vh-4rem)] text-app-text space-y-6">
     <!-- Header with greeting -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h2 class="text-3xl font-extrabold tracking-tight">Panel de Control</h2>
-        <p class="text-sm text-slate-400 mt-1">
-          Resumen operativo de <span class="text-amber-500 font-semibold">{{ localesStore.activeLocale?.name }}</span>
+        <h2 class="text-3xl font-extrabold tracking-tight text-app-text">Panel de Control</h2>
+        <p class="text-sm text-app-text-muted mt-1">
+          Resumen operativo de <span class="text-app-primary font-semibold">{{ localesStore.activeLocale?.name }}</span>
         </p>
       </div>
       <div class="flex items-center gap-2">
         <button 
           @click="generateMockSale" 
-          class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-sm rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/20 active:scale-95 cursor-pointer"
+          class="flex items-center gap-2 px-4 py-2 bg-app-primary hover:bg-app-primary-hover text-white font-bold text-sm rounded-xl transition-all duration-300 shadow-md shadow-app-primary/10 active:scale-95 cursor-pointer"
         >
           <i class="pi pi-plus"></i>
           <span>Simular Venta Rápida</span>
@@ -22,81 +22,81 @@
     <!-- KPI Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Total Sales -->
-      <div class="glass p-5 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+      <div class="bg-white p-5 rounded-2xl border border-app-border relative overflow-hidden group hover:border-app-primary/20 transition-all duration-300 shadow-sm">
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ventas de Hoy</p>
-            <h3 class="text-2xl font-black mt-2 text-white">{{ totalSales.toFixed(2) }} €</h3>
+            <p class="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Ventas de Hoy</p>
+            <h3 class="text-2xl font-black mt-2 text-app-text">{{ totalSales.toFixed(2) }} €</h3>
           </div>
-          <div class="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
+          <div class="p-3 bg-app-primary-soft text-app-primary rounded-xl">
             <i class="pi pi-euro text-lg"></i>
           </div>
         </div>
         <div class="mt-4 flex items-center gap-2 text-xs">
-          <span class="text-emerald-400 font-bold flex items-center gap-0.5">
+          <span class="text-emerald-600 font-bold flex items-center gap-0.5">
             <i class="pi pi-arrow-up-right"></i> +12.4%
           </span>
-          <span class="text-slate-500">vs ayer</span>
+          <span class="text-app-text-muted">vs ayer</span>
         </div>
-        <div class="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div class="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-app-primary to-app-primary-hover opacity-0 group-hover:opacity-100 transition-opacity"></div>
       </div>
 
       <!-- Occupancy -->
-      <div class="glass p-5 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-teal-500/20 transition-all duration-300">
+      <div class="bg-white p-5 rounded-2xl border border-app-border relative overflow-hidden group hover:border-teal-500/20 transition-all duration-300 shadow-sm">
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ocupación</p>
-            <h3 class="text-2xl font-black mt-2 text-white">{{ occupiedTablesCount }} / {{ totalTablesCount }}</h3>
+            <p class="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Ocupación</p>
+            <h3 class="text-2xl font-black mt-2 text-app-text">{{ occupiedTablesCount }} / {{ totalTablesCount }}</h3>
           </div>
-          <div class="p-3 bg-teal-500/10 text-teal-500 rounded-xl">
+          <div class="p-3 bg-teal-50 text-teal-600 rounded-xl">
             <i class="pi pi-users text-lg"></i>
           </div>
         </div>
         <div class="mt-4 flex items-center gap-2 text-xs">
-          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+          <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
             <div class="bg-teal-500 h-1.5 rounded-full" :style="{ width: `${occupancyRate}%` }"></div>
           </div>
-          <span class="text-slate-300 font-semibold">{{ occupancyRate.toFixed(0) }}%</span>
+          <span class="text-app-text font-semibold">{{ occupancyRate.toFixed(0) }}%</span>
         </div>
         <div class="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-teal-500 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       </div>
 
       <!-- Pending Orders -->
-      <div class="glass p-5 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300">
+      <div class="bg-white p-5 rounded-2xl border border-app-border relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300 shadow-sm">
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Comandas Activas</p>
-            <h3 class="text-2xl font-black mt-2 text-white">{{ activePreparationsCount }} items</h3>
+            <p class="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Comandas Activas</p>
+            <h3 class="text-2xl font-black mt-2 text-app-text">{{ activePreparationsCount }} items</h3>
           </div>
-          <div class="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
+          <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
             <i class="pi pi-bell text-lg"></i>
           </div>
         </div>
         <div class="mt-4 flex items-center gap-2 text-xs">
-          <span class="text-rose-400 font-bold flex items-center gap-0.5">
+          <span class="text-rose-600 font-bold flex items-center gap-0.5">
             {{ pendingPrepsCount }} en cola
           </span>
-          <span class="text-slate-500">esperando servicio</span>
+          <span class="text-app-text-muted">esperando servicio</span>
         </div>
         <div class="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 to-red-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       </div>
 
       <!-- Average Ticket -->
-      <div class="glass p-5 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-violet-500/20 transition-all duration-300">
+      <div class="bg-white p-5 rounded-2xl border border-app-border relative overflow-hidden group hover:border-violet-500/20 transition-all duration-300 shadow-sm">
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ticket Medio</p>
-            <h3 class="text-2xl font-black mt-2 text-white">{{ averageTicket.toFixed(2) }} €</h3>
+            <p class="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Ticket Medio</p>
+            <h3 class="text-2xl font-black mt-2 text-app-text">{{ averageTicket.toFixed(2) }} €</h3>
           </div>
-          <div class="p-3 bg-violet-500/10 text-violet-500 rounded-xl">
+          <div class="p-3 bg-violet-50 text-violet-600 rounded-xl">
             <i class="pi pi-receipt text-lg"></i>
           </div>
         </div>
         <div class="mt-4 flex items-center gap-2 text-xs">
-          <span class="text-emerald-400 font-bold flex items-center gap-0.5">
+          <span class="text-emerald-600 font-bold flex items-center gap-0.5">
             <i class="pi pi-arrow-up-right"></i> +4.2%
           </span>
-          <span class="text-slate-500">este mes</span>
+          <span class="text-app-text-muted">este mes</span>
         </div>
         <div class="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-violet-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       </div>
@@ -105,30 +105,30 @@
     <!-- Charts Area -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Sales Chart -->
-      <div class="glass p-6 rounded-3xl border border-white/5 lg:col-span-2 space-y-4">
+      <div class="bg-white p-6 rounded-3xl border border-app-border lg:col-span-2 space-y-4 shadow-sm">
         <div class="flex justify-between items-center">
           <div>
-            <h4 class="font-bold text-lg text-slate-200">Facturación Horaria</h4>
-            <p class="text-xs text-slate-400">Curva de ventas del día actual</p>
+            <h4 class="font-bold text-lg text-app-text">Facturación Horaria</h4>
+            <p class="text-xs text-app-text-muted">Curva de ventas del día actual</p>
           </div>
-          <span class="text-xs font-bold text-amber-500 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">Hoy</span>
+          <span class="text-xs font-bold text-app-primary px-3 py-1 rounded-full bg-app-primary-soft border border-app-primary/20">Hoy</span>
         </div>
         
         <!-- Elegant SVG Curve Chart -->
-        <div class="w-full h-64 relative bg-slate-900/40 rounded-2xl p-4 flex items-end">
+        <div class="w-full h-64 relative bg-slate-50 rounded-2xl p-4 flex items-end">
           <svg viewBox="0 0 100 40" class="w-full h-full overflow-visible" preserveAspectRatio="none">
             <!-- Gradients -->
             <defs>
               <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3"/>
-                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+                <stop offset="0%" stop-color="var(--color-app-primary)" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="var(--color-app-primary)" stop-opacity="0"/>
               </linearGradient>
             </defs>
 
             <!-- Grid Lines -->
-            <line x1="0" y1="10" x2="100" y2="10" stroke="rgba(255,255,255,0.05)" stroke-width="0.3" stroke-dasharray="1,1" />
-            <line x1="0" y1="20" x2="100" y2="20" stroke="rgba(255,255,255,0.05)" stroke-width="0.3" stroke-dasharray="1,1" />
-            <line x1="0" y1="30" x2="100" y2="30" stroke="rgba(255,255,255,0.05)" stroke-width="0.3" stroke-dasharray="1,1" />
+            <line x1="0" y1="10" x2="100" y2="10" stroke="var(--color-app-border)" stroke-width="0.3" stroke-dasharray="1,1" />
+            <line x1="0" y1="20" x2="100" y2="20" stroke="var(--color-app-border)" stroke-width="0.3" stroke-dasharray="1,1" />
+            <line x1="0" y1="30" x2="100" y2="30" stroke="var(--color-app-border)" stroke-width="0.3" stroke-dasharray="1,1" />
 
             <!-- Area under path -->
             <path 
@@ -140,38 +140,38 @@
             <path 
               d="M 5,40 C 20,25 35,15 50,22 C 65,30 80,10 95,8" 
               fill="none" 
-              stroke="#f59e0b" 
+              stroke="var(--color-app-primary)"
               stroke-width="1.2" 
               stroke-linecap="round" 
             />
 
             <!-- Data Nodes -->
-            <circle cx="50" cy="22" r="1.5" fill="#f59e0b" stroke="#020617" stroke-width="0.5" />
-            <circle cx="95" cy="8" r="1.5" fill="#f59e0b" stroke="#020617" stroke-width="0.5" />
+            <circle cx="50" cy="22" r="1.5" fill="var(--color-app-primary)" stroke="var(--color-app-surface)" stroke-width="0.5" />
+            <circle cx="95" cy="8" r="1.5" fill="var(--color-app-primary)" stroke="var(--color-app-surface)" stroke-width="0.5" />
           </svg>
 
           <!-- Label Overlay -->
-          <div class="absolute bottom-4 left-6 text-[10px] text-slate-500">12:00</div>
-          <div class="absolute bottom-4 left-[50%] -translate-x-1/2 text-[10px] text-slate-400 font-semibold bg-slate-900 border border-white/10 px-1.5 py-0.5 rounded">14:00 (Pico: 340 €)</div>
-          <div class="absolute bottom-4 right-6 text-[10px] text-slate-500">16:00</div>
+          <div class="absolute bottom-4 left-6 text-[10px] text-app-text-muted">12:00</div>
+          <div class="absolute bottom-4 left-[50%] -translate-x-1/2 text-[10px] text-app-text-muted font-semibold bg-white border border-app-border px-1.5 py-0.5 rounded shadow-sm">14:00 (Pico: 340 €)</div>
+          <div class="absolute bottom-4 right-6 text-[10px] text-app-text-muted">16:00</div>
         </div>
       </div>
 
       <!-- Categories Chart / Sales Distribution -->
-      <div class="glass p-6 rounded-3xl border border-white/5 space-y-4">
+      <div class="bg-white p-6 rounded-3xl border border-app-border space-y-4 shadow-sm">
         <div>
-          <h4 class="font-bold text-lg text-slate-200">Por Categoría</h4>
-          <p class="text-xs text-slate-400">Distribución de las comandas</p>
+          <h4 class="font-bold text-lg text-app-text">Por Categoría</h4>
+          <p class="text-xs text-app-text-muted">Distribución de las comandas</p>
         </div>
 
         <div class="space-y-4 pt-4">
           <div v-for="cat in categoryDistribution" :key="cat.name" class="space-y-2">
             <div class="flex justify-between text-xs font-semibold">
-              <span class="text-slate-300">{{ cat.name }}</span>
-              <span class="text-slate-400">{{ cat.percentage }}%</span>
+              <span class="text-app-text">{{ cat.name }}</span>
+              <span class="text-app-text-muted">{{ cat.percentage }}%</span>
             </div>
-            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div :class="['h-2 rounded-full', cat.color]" :style="{ width: `${cat.percentage}%` }"></div>
+            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div :class="['h-2 rounded-full', cat.color === 'bg-amber-500' ? 'bg-app-primary' : cat.color]" :style="{ width: `${cat.percentage}%` }"></div>
             </div>
           </div>
         </div>
@@ -179,20 +179,20 @@
     </div>
 
     <!-- Bottom Section: Recent Sales Feed -->
-    <div class="glass p-6 rounded-3xl border border-white/5 space-y-4">
+    <div class="bg-white p-6 rounded-3xl border border-app-border space-y-4 shadow-sm">
       <div class="flex justify-between items-center">
         <div>
-          <h4 class="font-bold text-lg text-slate-200">Últimas Transacciones</h4>
-          <p class="text-xs text-slate-400">Ventas finalizadas recientemente en sala</p>
+          <h4 class="font-bold text-lg text-app-text">Últimas Transacciones</h4>
+          <p class="text-xs text-app-text-muted">Ventas finalizadas recientemente en sala</p>
         </div>
-        <router-link to="/mesas" class="text-xs font-semibold text-amber-500 hover:underline">Ir a Mesas &rarr;</router-link>
+        <router-link to="/mesas" class="text-xs font-semibold text-app-primary hover:underline">Ir a Mesas &rarr;</router-link>
       </div>
 
       <!-- Table of transactions -->
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
+        <table class="w-full text-left text-sm text-app-text">
           <thead>
-            <tr class="border-b border-slate-800 text-xs text-slate-500 font-bold uppercase tracking-wider">
+            <tr class="border-b border-app-border text-xs text-app-text-muted font-bold uppercase tracking-wider">
               <th class="pb-3">ID Venta</th>
               <th class="pb-3">Mesa</th>
               <th class="pb-3">Artículos</th>
@@ -201,22 +201,22 @@
               <th class="pb-3 text-right">Total</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800/50">
-            <tr v-for="order in mesasStore.completedOrders.slice().reverse()" :key="order.id" class="hover:bg-white/2 transition-colors">
-              <td class="py-3 font-mono text-xs text-slate-400">#{{ order.id }}</td>
-              <td class="py-3 font-bold text-slate-200">Mesa {{ order.tableNumber }}</td>
-              <td class="py-3">{{ order.itemsCount }} productos</td>
+          <tbody class="divide-y divide-app-border">
+            <tr v-for="order in mesasStore.completedOrders.slice().reverse()" :key="order.id" class="hover:bg-slate-50 transition-colors">
+              <td class="py-3 font-mono text-xs text-app-text-muted">#{{ order.id }}</td>
+              <td class="py-3 font-bold text-app-text">Mesa {{ order.tableNumber }}</td>
+              <td class="py-3 text-app-text">{{ order.itemsCount }} productos</td>
               <td class="py-3 text-right">
                 <span :class="['inline-block text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider', 
-                  order.paymentMethod === 'card' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20']">
+                  order.paymentMethod === 'card' ? 'bg-indigo-50 text-indigo-600 border border-indigo-200/60' : 'bg-app-primary-soft text-app-primary border border-app-primary/20']">
                   {{ order.paymentMethod === 'card' ? 'Tarjeta' : 'Efectivo' }}
                 </span>
               </td>
-              <td class="py-3 text-right text-slate-500 text-xs">{{ order.timestamp }}</td>
-              <td class="py-3 text-right font-black text-white text-base">{{ order.total.toFixed(2) }} €</td>
+              <td class="py-3 text-right text-app-text-muted text-xs">{{ order.timestamp }}</td>
+              <td class="py-3 text-right font-black text-app-text text-base">{{ order.total.toFixed(2) }} €</td>
             </tr>
             <tr v-if="mesasStore.completedOrders.length === 0">
-              <td colspan="6" class="py-8 text-center text-slate-500">No hay ventas registradas hoy.</td>
+              <td colspan="6" class="py-8 text-center text-app-text-muted">No hay ventas registradas hoy.</td>
             </tr>
           </tbody>
         </table>
