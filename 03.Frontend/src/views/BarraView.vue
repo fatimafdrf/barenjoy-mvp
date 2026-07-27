@@ -1,186 +1,186 @@
 <template>
-  <div class="bg-slate-950 min-h-[calc(100vh-4rem)]">
-    <div class="max-w-7xl w-full mx-auto p-6 space-y-6">
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-      <div>
-        <h2 class="text-3xl font-extrabold tracking-tight">Pantalla de Barra (BDS)</h2>
-        <p class="text-sm text-slate-400 mt-1">Gestión rápida de bebidas, copas y cafés</p>
-      </div>
-      
-      <!-- Quick Info -->
-      <div class="flex gap-4">
-        <div class="glass px-4 py-2 rounded-2xl border border-white/5 text-center text-xs">
-          <p class="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Copas en Cola</p>
-          <p class="text-lg font-black text-amber-500 mt-0.5">{{ pendingCount }}</p>
+  <div class="bg-app-background min-h-[calc(100vh-4rem)]">
+    <div class="max-w-7xl w-full mx-auto p-6 text-app-text space-y-6">
+      <!-- Header -->
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-3xl font-extrabold tracking-tight text-app-text">Pantalla de Barra (BDS)</h2>
+          <p class="text-sm text-app-text-muted mt-1">Gestión rápida de bebidas, copas y cafés</p>
         </div>
-        <div class="glass px-4 py-2 rounded-2xl border border-white/5 text-center text-xs">
-          <p class="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Preparándose</p>
-          <p class="text-lg font-black text-violet-500 mt-0.5">{{ preparingCount }}</p>
-        </div>
-      </div>
-    </div>
 
-    <!-- BDS Board Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-190px)] min-h-[500px]">
-      
-      <!-- COLUMN 1: PENDING -->
-      <div class="glass rounded-3xl border border-white/5 bg-slate-900/20 flex flex-col h-full overflow-hidden">
-        <div class="p-4 border-b border-slate-800/80 bg-slate-950/40 flex justify-between items-center">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-md shadow-amber-500/20"></span>
-            <h3 class="font-bold text-slate-200 text-sm uppercase tracking-wider">Pendientes</h3>
+        <!-- Quick Info -->
+        <div class="flex gap-4">
+          <div class="bg-white px-4 py-2 rounded-2xl border border-app-border text-center text-xs shadow-sm">
+            <p class="text-app-text-muted font-semibold uppercase tracking-wider text-[10px]">Copas en Cola</p>
+            <p class="text-lg font-black text-amber-600 mt-0.5">{{ pendingCount }}</p>
           </div>
-          <span class="text-xs font-mono font-bold bg-slate-850 px-2 py-0.5 rounded text-slate-400">{{ pendingItems.length }}</span>
+          <div class="bg-white px-4 py-2 rounded-2xl border border-app-border text-center text-xs shadow-sm">
+            <p class="text-app-text-muted font-semibold uppercase tracking-wider text-[10px]">Preparándose</p>
+            <p class="text-lg font-black text-app-primary mt-0.5">{{ preparingCount }}</p>
+          </div>
         </div>
-        
-        <!-- Tickets list -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-3">
-          <div 
-            v-for="ticket in pendingItems" 
-            :key="ticket.item.id"
-            class="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 hover:border-amber-500/20 transition-all duration-350 space-y-3 shadow-md relative group overflow-hidden"
-          >
-            <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+      </div>
 
-            <div class="flex justify-between items-start">
-              <div>
-                <span class="text-[10px] font-black uppercase text-slate-500 font-mono">BEBIDA</span>
-                <h4 class="font-black text-slate-100 text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+      <!-- BDS Board Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-190px)] min-h-[500px]">
+
+        <!-- COLUMN 1: PENDING -->
+        <div class="bg-slate-50 rounded-3xl border border-app-border flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-app-border bg-slate-100/50 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-md shadow-amber-500/20"></span>
+              <h3 class="font-bold text-app-text text-sm uppercase tracking-wider">Pendientes</h3>
+            </div>
+            <span class="text-xs font-mono font-bold bg-slate-200 px-2 py-0.5 rounded text-app-text-muted">{{ pendingItems.length }}</span>
+          </div>
+
+          <!-- Tickets list -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div
+              v-for="ticket in pendingItems"
+              :key="ticket.item.id"
+              class="p-4 rounded-2xl bg-white border border-app-border hover:border-app-primary/20 transition-all duration-350 space-y-3 shadow-sm relative group overflow-hidden"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-[10px] font-black uppercase text-app-text-muted font-mono">BEBIDA</span>
+                  <h4 class="font-black text-app-text text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                </div>
+                <span class="text-xs font-mono text-app-text-muted">{{ ticket.elapsedTime }}</span>
               </div>
-              <span class="text-xs font-mono text-slate-500">{{ ticket.elapsedTime }}</span>
-            </div>
 
-            <div class="text-base font-bold text-slate-200 flex items-center gap-2">
-              <i class="pi pi-glass text-amber-500 text-sm animate-pulse"></i>
-              <span>{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
-            </div>
-
-            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center">
-              <span class="text-[10px] text-slate-550">Comanda directa</span>
-
-              <button 
-                @click="updateStatus(ticket.tableId, ticket.item.id, 'preparing')"
-                class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Servir Copa</span>
-                <i class="pi pi-chevron-right text-[10px]"></i>
-              </button>
-            </div>
-          </div>
-
-          <div v-if="pendingItems.length === 0" class="text-center py-16 text-slate-500 text-sm">
-            Sin comandas de barra pendientes.
-          </div>
-        </div>
-      </div>
-
-      <!-- COLUMN 2: PREPARING -->
-      <div class="glass rounded-3xl border border-white/5 bg-slate-900/20 flex flex-col h-full overflow-hidden">
-        <div class="p-4 border-b border-slate-800/80 bg-slate-950/40 flex justify-between items-center">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-violet-500 shadow-md shadow-violet-500/20"></span>
-            <h3 class="font-bold text-slate-200 text-sm uppercase tracking-wider">Preparando</h3>
-          </div>
-          <span class="text-xs font-mono font-bold bg-slate-850 px-2 py-0.5 rounded text-slate-400">{{ preparingItems.length }}</span>
-        </div>
-        
-        <!-- Tickets list -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-3">
-          <div 
-            v-for="ticket in preparingItems" 
-            :key="ticket.item.id"
-            class="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 hover:border-violet-500/20 transition-all duration-350 space-y-3 shadow-md relative group overflow-hidden"
-          >
-            <div class="absolute left-0 top-0 bottom-0 w-1 bg-violet-500"></div>
-
-            <div class="flex justify-between items-start">
-              <div>
-                <span class="text-[10px] font-black uppercase text-slate-500 font-mono">BEBIDA</span>
-                <h4 class="font-black text-slate-100 text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+              <div class="text-base font-bold text-app-text flex items-center gap-2">
+                <i class="pi pi-glass text-amber-500 text-sm animate-pulse"></i>
+                <span class="text-app-text font-extrabold">{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
               </div>
-              <span class="text-xs font-mono text-violet-400 font-semibold">{{ ticket.elapsedTime }}</span>
-            </div>
 
-            <div class="text-base font-bold text-slate-200 flex items-center gap-2">
-              <i class="pi pi-glass text-violet-400 text-sm"></i>
-              <span>{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
-            </div>
+              <div class="pt-3 border-t border-app-border flex justify-between items-center">
+                <span class="text-[10px] text-app-text-muted">Comanda directa</span>
 
-            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center">
-              <span class="text-[10px] text-violet-400 font-semibold bg-violet-500/10 px-2 py-0.5 rounded animate-pulse">
-                Mezclando...
-              </span>
-
-              <button 
-                @click="updateStatus(ticket.tableId, ticket.item.id, 'ready')"
-                class="px-3.5 py-1.5 bg-violet-500 hover:bg-violet-600 text-slate-950 font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Listo</span>
-                <i class="pi pi-check-circle text-[10px]"></i>
-              </button>
-            </div>
-          </div>
-
-          <div v-if="preparingItems.length === 0" class="text-center py-16 text-slate-500 text-sm">
-            Sin bebidas en preparación.
-          </div>
-        </div>
-      </div>
-
-      <!-- COLUMN 3: READY / SERVED -->
-      <div class="glass rounded-3xl border border-white/5 bg-slate-900/20 flex flex-col h-full overflow-hidden">
-        <div class="p-4 border-b border-slate-800/80 bg-slate-950/40 flex justify-between items-center">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/20"></span>
-            <h3 class="font-bold text-slate-200 text-sm uppercase tracking-wider">Para Servir</h3>
-          </div>
-          <span class="text-xs font-mono font-bold bg-slate-850 px-2 py-0.5 rounded text-slate-400">{{ readyItems.length }}</span>
-        </div>
-        
-        <!-- Tickets list -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-3">
-          <div 
-            v-for="ticket in readyItems" 
-            :key="ticket.item.id"
-            class="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 hover:border-emerald-500/20 transition-all duration-350 space-y-3 shadow-md relative group overflow-hidden"
-          >
-            <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
-
-            <div class="flex justify-between items-start">
-              <div>
-                <span class="text-[10px] font-black uppercase text-slate-500 font-mono">BEBIDA</span>
-                <h4 class="font-black text-slate-100 text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                <button
+                  @click="updateStatus(ticket.tableId, ticket.item.id, 'preparing')"
+                  class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>Servir Copa</span>
+                  <i class="pi pi-chevron-right text-[10px]"></i>
+                </button>
               </div>
-              <span class="text-xs font-mono text-emerald-500 font-bold">Listas</span>
             </div>
 
-            <div class="text-base font-bold text-slate-200 flex items-center gap-2">
-              <i class="pi pi-glass text-emerald-400 text-sm"></i>
-              <span>{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+            <div v-if="pendingItems.length === 0" class="text-center py-16 text-app-text-muted text-sm">
+              Sin comandas de barra pendientes.
             </div>
-
-            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center">
-              <span class="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
-                Listas en barra
-              </span>
-
-              <button 
-                @click="updateStatus(ticket.tableId, ticket.item.id, 'served')"
-                class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Servido</span>
-              </button>
-            </div>
-          </div>
-
-          <div v-if="readyItems.length === 0" class="text-center py-16 text-slate-500 text-sm">
-            Sin copas pendientes de servir.
           </div>
         </div>
-      </div>
 
-    </div>
+        <!-- COLUMN 2: PREPARING -->
+        <div class="bg-slate-50 rounded-3xl border border-app-border flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-app-border bg-slate-100/50 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-app-primary shadow-md shadow-app-primary/20"></span>
+              <h3 class="font-bold text-app-text text-sm uppercase tracking-wider">Preparando</h3>
+            </div>
+            <span class="text-xs font-mono font-bold bg-slate-200 px-2 py-0.5 rounded text-app-text-muted">{{ preparingItems.length }}</span>
+          </div>
+
+          <!-- Tickets list -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div
+              v-for="ticket in preparingItems"
+              :key="ticket.item.id"
+              class="p-4 rounded-2xl bg-white border border-app-border hover:border-app-primary/20 transition-all duration-350 space-y-3 shadow-sm relative group overflow-hidden"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-1 bg-app-primary"></div>
+
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-[10px] font-black uppercase text-app-text-muted font-mono">BEBIDA</span>
+                  <h4 class="font-black text-app-text text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                </div>
+                <span class="text-xs font-mono text-app-primary font-semibold">{{ ticket.elapsedTime }}</span>
+              </div>
+
+              <div class="text-base font-bold text-app-text flex items-center gap-2">
+                <i class="pi pi-glass text-app-primary text-sm"></i>
+                <span class="text-app-text font-extrabold">{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+              </div>
+
+              <div class="pt-3 border-t border-app-border flex justify-between items-center">
+                <span class="text-[10px] text-app-primary font-semibold bg-app-primary-soft/45 px-2 py-0.5 rounded animate-pulse">
+                  Mezclando...
+                </span>
+
+                <button
+                  @click="updateStatus(ticket.tableId, ticket.item.id, 'ready')"
+                  class="px-3.5 py-1.5 bg-app-primary hover:bg-app-primary-hover text-white font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>Listo</span>
+                  <i class="pi pi-check-circle text-[10px]"></i>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="preparingItems.length === 0" class="text-center py-16 text-app-text-muted text-sm">
+              Sin bebidas en preparación.
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMN 3: READY / SERVED -->
+        <div class="bg-slate-50 rounded-3xl border border-app-border flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-app-border bg-slate-100/50 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/20"></span>
+              <h3 class="font-bold text-app-text text-sm uppercase tracking-wider">Para Servir</h3>
+            </div>
+            <span class="text-xs font-mono font-bold bg-slate-200 px-2 py-0.5 rounded text-app-text-muted">{{ readyItems.length }}</span>
+          </div>
+
+          <!-- Tickets list -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div
+              v-for="ticket in readyItems"
+              :key="ticket.item.id"
+              class="p-4 rounded-2xl bg-white border border-app-border hover:border-app-primary/20 transition-all duration-350 space-y-3 shadow-sm relative group overflow-hidden"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
+
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-[10px] font-black uppercase text-app-text-muted font-mono">BEBIDA</span>
+                  <h4 class="font-black text-app-text text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                </div>
+                <span class="text-xs font-mono text-emerald-600 font-bold">Listas</span>
+              </div>
+
+              <div class="text-base font-bold text-app-text flex items-center gap-2">
+                <i class="pi pi-glass text-emerald-500 text-sm"></i>
+                <span class="text-app-text font-extrabold">{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+              </div>
+
+              <div class="pt-3 border-t border-app-border flex justify-between items-center">
+                <span class="text-[10px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                  Listas en barra
+                </span>
+
+                <button
+                  @click="updateStatus(ticket.tableId, ticket.item.id, 'served')"
+                  class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-app-text border border-app-border font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>Servido</span>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="readyItems.length === 0" class="text-center py-16 text-app-text-muted text-sm">
+              Sin copas pendientes de servir.
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 </template>
