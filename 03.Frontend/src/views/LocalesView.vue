@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="bg-slate-950 min-h-[calc(100vh-4rem)] p-6 space-y-6">
     <!-- Header -->
     <div class="flex justify-between items-center">
       <div>
