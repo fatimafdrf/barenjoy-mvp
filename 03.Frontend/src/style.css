@@ -20,6 +20,17 @@
   --color-siply-primary-800: #421e87;
   --color-siply-primary-900: #29105d;
   --color-siply-primary-950: #17073c;
+
+  /* Tokens semánticos del diseño claro SIPLY */
+  --color-app-background: #F8FAFC;
+  --color-app-surface: #FFFFFF;
+  --color-app-surface-muted: #F1F5F9;
+  --color-app-border: #E2E8F0;
+  --color-app-text: #08071A;
+  --color-app-text-muted: #64748B;
+  --color-app-primary: #9235DF;
+  --color-app-primary-hover: #7827BE;
+  --color-app-primary-soft: #F7F1FD;
 }
 
 @layer base {
