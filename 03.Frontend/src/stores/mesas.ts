@@ -196,14 +196,19 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
-  const addItemsToTableOrder = (id: string, itemsToAdd: Array<{ id: string; name: string; price: number; category: any; quantity: number }>) => {
+  const addItemsToTableOrder = (id: string, itemsToAdd: Array<{ id: string; name: string; price: number; category: any; quantity: number; notes?: string }>) => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
       if (table.status === 'free') {
         table.status = 'occupied'
       }
       itemsToAdd.forEach(item => {
-        const existing = table.orders.find(o => o.menuItemId === item.id && o.status === 'pending')
+        const normalizedNote = item.notes?.trim() || ''
+        const existing = table.orders.find(o => 
+          o.menuItemId === item.id && 
+          o.status === 'pending' && 
+          (o.notes?.trim() || '') === normalizedNote
+        )
         if (existing) {
           existing.quantity += item.quantity
         } else {
@@ -214,7 +219,8 @@ export const useMesasStore = defineStore('mesas', () => {
             price: item.price,
             quantity: item.quantity,
             status: 'pending',
-            category: item.category
+            category: item.category,
+            notes: normalizedNote || undefined
           })
         }
       })

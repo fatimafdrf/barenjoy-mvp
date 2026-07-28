@@ -136,14 +136,18 @@
                   :key="item.id"
                   class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-app-border text-xs"
                 >
-                  <div>
-                    <p class="font-bold text-app-text">{{ item.name }}</p>
+                  <div class="flex-1 min-w-0 pr-2">
+                    <p class="font-bold text-app-text truncate">{{ item.name }}</p>
                     <p class="text-app-text-muted text-[10px] mt-0.5">
                       {{ item.quantity }} x {{ item.price.toFixed(2) }} €
                     </p>
+                    <p v-if="item.notes" class="text-app-primary text-[10px] font-medium mt-1 italic flex items-center gap-1">
+                      <i class="pi pi-info-circle text-[9px]"></i>
+                      <span>Nota: {{ item.notes }}</span>
+                    </p>
                   </div>
 
-                  <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-3 shrink-0">
                     <!-- Prep Badge -->
                     <span :class="[
                       'px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider',
@@ -189,7 +193,7 @@
               <!-- Operations buttons -->
               <div class="flex gap-3">
                 <button
-                  @click="showCatalog = true"
+                  @click="openCatalog"
                   class="flex-1 py-3 bg-white hover:bg-app-primary-soft border border-app-border hover:border-app-primary/20 text-app-text hover:text-app-primary font-semibold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <i class="pi pi-plus"></i>
@@ -272,8 +276,55 @@
             </div>
           </div>
 
+          <!-- Basket Config Section -->
+          <div v-if="basket.length > 0" class="border-t border-app-border pt-3 space-y-2 shrink-0">
+            <p class="text-xs font-bold text-app-text-muted uppercase tracking-wider">Productos Seleccionados</p>
+            <div class="max-h-40 overflow-y-auto space-y-2 pr-1">
+              <div 
+                v-for="(item, index) in basket" 
+                :key="item.id"
+                class="p-2.5 bg-slate-50 border border-app-border rounded-xl flex flex-col gap-2 text-xs"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-app-text">{{ item.name }} ({{ item.price.toFixed(2) }} €)</span>
+                  <div class="flex items-center gap-2">
+                    <button 
+                      type="button"
+                      @click="decrementBasketItem(index)"
+                      class="w-5 h-5 rounded bg-white hover:bg-slate-100 border border-app-border flex items-center justify-center font-bold text-app-text cursor-pointer"
+                    >-</button>
+                    <span class="font-bold w-4 text-center">{{ item.quantity }}</span>
+                    <button 
+                      type="button"
+                      @click="incrementBasketItem(index)"
+                      class="w-5 h-5 rounded bg-white hover:bg-slate-100 border border-app-border flex items-center justify-center font-bold text-app-text cursor-pointer"
+                    >+</button>
+                    <button 
+                      type="button"
+                      @click="removeFromBasket(index)"
+                      class="p-1 text-rose-500 hover:text-rose-700 ml-1 cursor-pointer"
+                    >
+                      <i class="pi pi-trash text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+                <!-- Notes Input -->
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] text-app-text-muted font-semibold uppercase shrink-0">Nota:</span>
+                  <input
+                    v-model="item.notes"
+                    type="text"
+                    maxlength="200"
+                    placeholder="Ej. Sin cebolla, poco hecho (máx 200 car.)"
+                    class="w-full bg-white border border-app-border text-app-text rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:border-app-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Footer Basket summary -->
-          <div class="pt-4 border-t border-app-border flex justify-between items-center">
+          <div class="pt-4 border-t border-app-border flex justify-between items-center shrink-0">
             <div>
               <p class="text-xs text-app-text-muted">Total a añadir:</p>
               <p class="text-base font-bold text-app-text">{{ basketTotal.toFixed(2) }} € ({{ basketCount }} items)</p>
@@ -365,13 +416,15 @@ const showCatalog = ref(false)
 const showCheckoutDialog = ref(false)
 const activeCategory = ref<string>('all')
 
-// Shopping basket structure for adding menu items
+// Shopping basket structure for adding menu items with optional notes support
 interface BasketItem {
   id: string
+  menuItemId: string
   name: string
   price: number
   category: string
   quantity: number
+  notes: string
 }
 const basket = ref<BasketItem[]>([])
 
@@ -399,20 +452,49 @@ const filteredProducts = computed(() => {
   return items.filter(item => item.category === activeCategory.value)
 })
 
+// Open catalog and clean temporal notes
+const openCatalog = () => {
+  basket.value = []
+  showCatalog.value = true
+}
+
 // Basket helpers
 const addToBasket = (product: MenuItem) => {
-  const existing = basket.value.find(item => item.id === product.id)
+  // If product exists in basket and has NO notes, increment quantity
+  const existing = basket.value.find(item => item.menuItemId === product.id && item.notes === '')
   if (existing) {
     existing.quantity++
   } else {
     basket.value.push({
-      id: product.id,
+      id: 'b-' + Math.random().toString(36).substr(2, 9),
+      menuItemId: product.id,
       name: product.name,
       price: product.price,
       category: product.category,
-      quantity: 1
+      quantity: 1,
+      notes: ''
     })
   }
+}
+
+const incrementBasketItem = (index: number) => {
+  if (basket.value[index]) {
+    basket.value[index].quantity++
+  }
+}
+
+const decrementBasketItem = (index: number) => {
+  if (basket.value[index]) {
+    if (basket.value[index].quantity > 1) {
+      basket.value[index].quantity--
+    } else {
+      basket.value.splice(index, 1)
+    }
+  }
+}
+
+const removeFromBasket = (index: number) => {
+  basket.value.splice(index, 1)
 }
 
 const basketTotal = computed(() => {
@@ -425,7 +507,16 @@ const basketCount = computed(() => {
 
 const submitBasket = () => {
   if (selectedTable.value && basket.value.length > 0) {
-    mesasStore.addItemsToTableOrder(selectedTable.value.id, basket.value)
+    const itemsToSubmit = basket.value.map(item => ({
+      id: item.menuItemId,
+      name: item.name,
+      price: item.price,
+      category: item.category,
+      quantity: item.quantity,
+      notes: item.notes.trim()
+    }))
+    
+    mesasStore.addItemsToTableOrder(selectedTable.value.id, itemsToSubmit)
     basket.value = []
     showCatalog.value = false
     
