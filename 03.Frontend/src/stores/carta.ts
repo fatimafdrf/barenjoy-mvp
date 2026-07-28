@@ -10,6 +10,9 @@ export interface MenuItem {
   allergens: string[]
   available: boolean
   rating?: number
+  controlStock?: boolean
+  stock?: number
+  minStock?: number
 }
 
 export const useCartaStore = defineStore('carta', () => {
