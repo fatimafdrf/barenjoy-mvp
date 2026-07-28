@@ -132,7 +132,7 @@
               <div class="flex gap-2">
                 <i class="pi pi-exclamation-triangle text-rose-500 text-sm mt-0.5 shrink-0"></i>
                 <div class="space-y-1">
-                  <p class="font-bold text-rose-800">Mesa Ocupada</p>
+                  <p class="font-bold text-rose-800">Operación Bloqueada</p>
                   <p class="text-[11px] leading-relaxed text-rose-700">{{ warningMessage }}</p>
                 </div>
               </div>
@@ -220,7 +220,7 @@
 
                 <button
                   v-if="selectedTable.orders.length > 0"
-                  @click="showCheckoutDialog = true"
+                  @click="tryCheckout"
                   class="flex-1 py-3 bg-app-primary hover:bg-app-primary-hover text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <i class="pi pi-credit-card"></i>
@@ -358,6 +358,44 @@
         </div>
       </div>
 
+      <!-- Modal Dialog: Warning - Ready Unserved items -->
+      <div
+        v-if="showReadyWarningModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm px-4"
+      >
+        <div class="bg-white max-w-md w-full p-6 rounded-3xl border border-app-border space-y-4 shadow-2xl relative animate-in fade-in duration-200">
+          <button
+            @click="showReadyWarningModal = false"
+            class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+          >
+            <i class="pi pi-times"></i>
+          </button>
+
+          <h3 class="text-xl font-bold text-app-text flex items-center gap-2 text-amber-600">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>Advertencia de Cobro</span>
+          </h3>
+          <p class="text-xs text-app-text-muted leading-relaxed">
+            Hay productos listos que todavía no constan como servidos. Revisa la mesa antes de cobrar.
+          </p>
+
+          <div class="flex gap-3 pt-2">
+            <button
+              @click="showReadyWarningModal = false"
+              class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-app-text border border-app-border font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+            >
+              Revisar comanda
+            </button>
+            <button
+              @click="proceedToCheckout"
+              class="flex-1 py-2.5 bg-app-primary hover:bg-app-primary-hover text-white font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+            >
+              Continuar con el cobro
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Modal Dialog: Checkout / Payment Selection -->
       <div
         v-if="showCheckoutDialog"
@@ -432,6 +470,7 @@ const cartaStore = useCartaStore()
 const selectedTable = ref<Table | null>(null)
 const showCatalog = ref(false)
 const showCheckoutDialog = ref(false)
+const showReadyWarningModal = ref(false)
 const activeCategory = ref<string>('all')
 const showReleaseWarning = ref(false)
 const warningMessage = ref('')
@@ -452,6 +491,7 @@ const selectTable = (table: Table) => {
   selectedTable.value = table
   basket.value = []
   showReleaseWarning.value = false
+  showReadyWarningModal.value = false
 }
 
 const updateStatus = () => {
@@ -570,12 +610,47 @@ const markServed = (itemId: string) => {
   }
 }
 
+const tryCheckout = () => {
+  if (!selectedTable.value) return
+  
+  // Prevent billing of empty tables
+  if (selectedTable.value.orders.length === 0) {
+    return
+  }
+  
+  const { hasUnfinished, hasReadyUnserved } = mesasStore.canCheckoutTable(selectedTable.value.id)
+  
+  if (hasUnfinished) {
+    warningMessage.value = 'No puedes cobrar esta mesa porque todavía hay productos pendientes o en preparación.'
+    showReleaseWarning.value = true
+    return
+  }
+  
+  if (hasReadyUnserved) {
+    showReadyWarningModal.value = true
+    return
+  }
+  
+  showCheckoutDialog.value = true
+}
+
+const proceedToCheckout = () => {
+  showReadyWarningModal.value = false
+  showCheckoutDialog.value = true
+}
+
 const handlePayment = (method: 'card' | 'cash') => {
   if (selectedTable.value) {
-    mesasStore.checkoutTable(selectedTable.value.id, method)
-    showCheckoutDialog.value = false
-    selectedTable.value = null
-    showReleaseWarning.value = false
+    const success = mesasStore.checkoutTable(selectedTable.value.id, method)
+    if (success) {
+      showCheckoutDialog.value = false
+      selectedTable.value = null
+      showReleaseWarning.value = false
+    } else {
+      showCheckoutDialog.value = false
+      warningMessage.value = 'No puedes cobrar esta mesa porque todavía hay productos pendientes o en preparación.'
+      showReleaseWarning.value = true
+    }
   }
 }
 </script>

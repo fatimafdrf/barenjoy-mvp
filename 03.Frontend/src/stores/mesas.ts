@@ -244,9 +244,30 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
-  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash') => {
+  const canCheckoutTable = (id: string): { canCheckout: boolean; hasUnfinished: boolean; hasReadyUnserved: boolean } => {
+    const table = tables.value.find(t => t.id === id)
+    if (!table || table.orders.length === 0) {
+      return { canCheckout: false, hasUnfinished: false, hasReadyUnserved: false }
+    }
+    
+    const hasUnfinished = table.orders.some(o => o.status === 'pending' || o.status === 'preparing')
+    const hasReadyUnserved = table.orders.some(o => o.status === 'ready')
+    
+    return {
+      canCheckout: !hasUnfinished,
+      hasUnfinished,
+      hasReadyUnserved
+    }
+  }
+
+  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash'): boolean => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
+      const { canCheckout } = canCheckoutTable(id)
+      if (!canCheckout) {
+        return false
+      }
+
       const total = table.orders.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       const itemsCount = table.orders.reduce((sum, item) => sum + item.quantity, 0)
       
@@ -268,7 +289,9 @@ export const useMesasStore = defineStore('mesas', () => {
       table.status = 'free'
       table.orders = []
       saveTables()
+      return true
     }
+    return false
   }
 
   return {
@@ -279,6 +302,7 @@ export const useMesasStore = defineStore('mesas', () => {
     setTableStatus,
     addItemsToTableOrder,
     updateOrderItemStatus,
+    canCheckoutTable,
     checkoutTable
   }
 })
