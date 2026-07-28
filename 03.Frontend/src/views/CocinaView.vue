@@ -55,6 +55,10 @@
               <div class="text-base font-bold text-app-text">
                 {{ ticket.item.quantity }}x <span class="text-app-text font-extrabold">{{ ticket.item.name }}</span>
               </div>
+              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words">
+                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
+                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
+              </div>
 
               <div class="pt-3 border-t border-app-border flex justify-between items-center">
                 <span class="text-[10px] text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded" v-if="ticket.isLate">
@@ -108,6 +112,10 @@
               <div class="text-base font-bold text-app-text">
                 {{ ticket.item.quantity }}x <span class="text-app-text font-extrabold">{{ ticket.item.name }}</span>
               </div>
+              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words">
+                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
+                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
+              </div>
 
               <div class="pt-3 border-t border-app-border flex justify-between items-center">
                 <span class="text-[10px] text-app-primary font-semibold bg-app-primary-soft/45 px-2 py-0.5 rounded animate-pulse">
@@ -159,6 +167,10 @@
 
               <div class="text-base font-bold text-app-text">
                 {{ ticket.item.quantity }}x <span class="text-app-text font-extrabold">{{ ticket.item.name }}</span>
+              </div>
+              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words">
+                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
+                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
               </div>
 
               <div class="pt-3 border-t border-app-border flex justify-between items-center">

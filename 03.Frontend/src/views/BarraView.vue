@@ -55,6 +55,10 @@
                 <i class="pi pi-glass text-amber-500 text-sm animate-pulse"></i>
                 <span class="text-app-text font-extrabold">{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
               </div>
+              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words w-full">
+                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
+                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
+              </div>
 
               <div class="pt-3 border-t border-app-border flex justify-between items-center">
                 <span class="text-[10px] text-app-text-muted">Comanda directa</span>
@@ -105,6 +109,10 @@
               <div class="text-base font-bold text-app-text flex items-center gap-2">
                 <i class="pi pi-glass text-app-primary text-sm"></i>
                 <span class="text-app-text font-extrabold">{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+              </div>
+              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words w-full">
+                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
+                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
               </div>
 
               <div class="pt-3 border-t border-app-border flex justify-between items-center">
@@ -158,6 +166,10 @@
               <div class="text-base font-bold text-app-text flex items-center gap-2">
                 <i class="pi pi-glass text-emerald-500 text-sm"></i>
                 <span class="text-app-text font-extrabold">{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+              </div>
+              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words w-full">
+                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
+                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
               </div>
 
               <div class="pt-3 border-t border-app-border flex justify-between items-center">
