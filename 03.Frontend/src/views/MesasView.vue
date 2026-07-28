@@ -120,6 +120,24 @@
               </div>
             </div>
 
+            <!-- Warning Alert Block -->
+            <div v-if="showReleaseWarning" class="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 text-xs space-y-2 shrink-0 relative animate-in fade-in duration-200">
+              <button 
+                type="button"
+                @click="showReleaseWarning = false"
+                class="absolute top-2 right-2 text-rose-400 hover:text-rose-700 p-1 cursor-pointer"
+              >
+                <i class="pi pi-times text-[10px]"></i>
+              </button>
+              <div class="flex gap-2">
+                <i class="pi pi-exclamation-triangle text-rose-500 text-sm mt-0.5 shrink-0"></i>
+                <div class="space-y-1">
+                  <p class="font-bold text-rose-800">Mesa Ocupada</p>
+                  <p class="text-[11px] leading-relaxed text-rose-700">{{ warningMessage }}</p>
+                </div>
+              </div>
+            </div>
+
             <!-- Order Content List -->
             <div class="flex-1 overflow-y-auto max-h-72 space-y-3 pr-1">
               <div class="flex items-center justify-between">
@@ -415,6 +433,8 @@ const selectedTable = ref<Table | null>(null)
 const showCatalog = ref(false)
 const showCheckoutDialog = ref(false)
 const activeCategory = ref<string>('all')
+const showReleaseWarning = ref(false)
+const warningMessage = ref('')
 
 // Shopping basket structure for adding menu items with optional notes support
 interface BasketItem {
@@ -431,11 +451,26 @@ const basket = ref<BasketItem[]>([])
 const selectTable = (table: Table) => {
   selectedTable.value = table
   basket.value = []
+  showReleaseWarning.value = false
 }
 
 const updateStatus = () => {
   if (selectedTable.value) {
-    mesasStore.setTableStatus(selectedTable.value.id, selectedTable.value.status)
+    const tableId = selectedTable.value.id
+    const newStatus = selectedTable.value.status
+    
+    // Retrieve previous status in case we reject the action
+    const storeTable = mesasStore.tables.find(t => t.id === tableId)
+    const previousStatus = storeTable ? storeTable.status : 'free'
+
+    const accepted = mesasStore.setTableStatus(tableId, newStatus)
+    if (!accepted) {
+      selectedTable.value.status = previousStatus
+      warningMessage.value = 'No puedes liberar esta mesa porque todavía tiene una comanda. Cobra la cuenta antes de liberarla.'
+      showReleaseWarning.value = true
+    } else {
+      showReleaseWarning.value = false
+    }
   }
 }
 
@@ -456,6 +491,7 @@ const filteredProducts = computed(() => {
 const openCatalog = () => {
   basket.value = []
   showCatalog.value = true
+  showReleaseWarning.value = false
 }
 
 // Basket helpers
@@ -519,6 +555,7 @@ const submitBasket = () => {
     mesasStore.addItemsToTableOrder(selectedTable.value.id, itemsToSubmit)
     basket.value = []
     showCatalog.value = false
+    showReleaseWarning.value = false
     
     // Refresh selected table reference to force DOM updates
     const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
@@ -538,6 +575,7 @@ const handlePayment = (method: 'card' | 'cash') => {
     mesasStore.checkoutTable(selectedTable.value.id, method)
     showCheckoutDialog.value = false
     selectedTable.value = null
+    showReleaseWarning.value = false
   }
 }
 </script>

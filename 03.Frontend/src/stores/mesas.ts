@@ -185,15 +185,20 @@ export const useMesasStore = defineStore('mesas', () => {
     return items
   })
 
-  const setTableStatus = (id: string, status: TableStatus) => {
+  const setTableStatus = (id: string, status: TableStatus): boolean => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
+      if (status === 'free' && table.orders.length > 0) {
+        return false
+      }
       table.status = status
       if (status === 'free') {
         table.orders = []
       }
       saveTables()
+      return true
     }
+    return false
   }
 
   const addItemsToTableOrder = (id: string, itemsToAdd: Array<{ id: string; name: string; price: number; category: any; quantity: number; notes?: string }>) => {
