@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 export type TableStatus = 'free' | 'occupied' | 'reserved' | 'bill'
 export type OrderItemStatus = 'pending' | 'preparing' | 'ready' | 'served'
@@ -36,7 +36,7 @@ export interface CompletedOrder {
 }
 
 export const useMesasStore = defineStore('mesas', () => {
-  const tables = ref<Table[]>([
+  const DEFAULT_TABLES: Table[] = [
     { id: 't1', number: 1, capacity: 4, status: 'free', x: 15, y: 15, orders: [] },
     {
       id: 't2',
@@ -83,15 +83,73 @@ export const useMesasStore = defineStore('mesas', () => {
     { id: 't10', number: 10, capacity: 4, status: 'free', x: 92, y: 15, orders: [] },
     { id: 't11', number: 11, capacity: 4, status: 'free', x: 92, y: 45, orders: [] },
     { id: 't12', number: 12, capacity: 4, status: 'free', x: 92, y: 75, orders: [] }
-  ])
+  ]
 
-  const completedOrders = ref<CompletedOrder[]>([
+  const DEFAULT_COMPLETED: CompletedOrder[] = [
     { id: 'c1', tableNumber: 3, itemsCount: 4, total: 34.5, paymentMethod: 'card', timestamp: '12:30' },
     { id: 'c2', tableNumber: 5, itemsCount: 6, total: 58.2, paymentMethod: 'card', timestamp: '13:15' },
     { id: 'c3', tableNumber: 1, itemsCount: 2, total: 19.8, paymentMethod: 'cash', timestamp: '14:02' },
     { id: 'c4', tableNumber: 8, itemsCount: 3, total: 24.5, paymentMethod: 'card', timestamp: '14:30' },
     { id: 'c5', tableNumber: 11, itemsCount: 8, total: 98.4, paymentMethod: 'card', timestamp: '15:10' }
-  ])
+  ]
+
+  const loadTables = (): Table[] => {
+    try {
+      const data = localStorage.getItem('aveniq_tables')
+      if (data) {
+        const parsed = JSON.parse(data)
+        if (Array.isArray(parsed)) {
+          return parsed
+        }
+      }
+    } catch (e) {
+      console.error('Error loading tables from localStorage:', e)
+    }
+    return DEFAULT_TABLES
+  }
+
+  const loadCompletedOrders = (): CompletedOrder[] => {
+    try {
+      const data = localStorage.getItem('aveniq_completed_orders')
+      if (data) {
+        const parsed = JSON.parse(data)
+        if (Array.isArray(parsed)) {
+          return parsed
+        }
+      }
+    } catch (e) {
+      console.error('Error loading completed orders from localStorage:', e)
+    }
+    return DEFAULT_COMPLETED
+  }
+
+  const tables = ref<Table[]>(loadTables())
+  const completedOrders = ref<CompletedOrder[]>(loadCompletedOrders())
+
+  const saveTables = () => {
+    try {
+      localStorage.setItem('aveniq_tables', JSON.stringify(tables.value))
+    } catch (e) {
+      console.error('Error saving tables to localStorage:', e)
+    }
+  }
+
+  const saveCompletedOrders = () => {
+    try {
+      localStorage.setItem('aveniq_completed_orders', JSON.stringify(completedOrders.value))
+    } catch (e) {
+      console.error('Error saving completed orders to localStorage:', e)
+    }
+  }
+
+  // Watchers for reactive persistence
+  watch(tables, () => {
+    saveTables()
+  }, { deep: true })
+
+  watch(completedOrders, () => {
+    saveCompletedOrders()
+  }, { deep: true })
 
   // Get active items needing preparation in kitchen (tapas, platos, postres)
   const kitchenItems = computed(() => {
@@ -134,6 +192,7 @@ export const useMesasStore = defineStore('mesas', () => {
       if (status === 'free') {
         table.orders = []
       }
+      saveTables()
     }
   }
 
@@ -159,6 +218,7 @@ export const useMesasStore = defineStore('mesas', () => {
           })
         }
       })
+      saveTables()
     }
   }
 
@@ -168,6 +228,7 @@ export const useMesasStore = defineStore('mesas', () => {
       const item = table.orders.find(o => o.id === orderItemId)
       if (item) {
         item.status = status
+        saveTables()
       }
     }
   }
@@ -190,10 +251,12 @@ export const useMesasStore = defineStore('mesas', () => {
           paymentMethod,
           timestamp
         })
+        saveCompletedOrders()
       }
       
       table.status = 'free'
       table.orders = []
+      saveTables()
     }
   }
 
