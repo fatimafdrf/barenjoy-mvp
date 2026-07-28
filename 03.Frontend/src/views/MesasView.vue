@@ -78,6 +78,15 @@
               >
                 {{ table.orders.reduce((sum, item) => sum + item.quantity, 0) }}
               </span>
+
+              <!-- Ready count indicator -->
+              <span
+                v-if="getTableReadyCount(table) > 0"
+                class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] font-black tracking-tight flex items-center gap-0.5 border border-white whitespace-nowrap shadow-sm shadow-emerald-500/20"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                <span>{{ getTableReadyCount(table) }} {{ getTableReadyCount(table) === 1 ? 'listo' : 'listos' }}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -526,6 +535,13 @@ const filteredProducts = computed(() => {
   if (activeCategory.value === 'all') return items
   return items.filter(item => item.category === activeCategory.value)
 })
+
+// Calculate ready items count for a given table
+const getTableReadyCount = (table: Table): number => {
+  return table.orders
+    .filter(o => o.status === 'ready')
+    .reduce((sum, item) => sum + item.quantity, 0)
+}
 
 // Open catalog and clean temporal notes
 const openCatalog = () => {
