@@ -1,10 +1,8 @@
 <template>
   <div class="bg-white p-8 rounded-3xl border border-app-border w-full shadow-xl relative">
     <!-- Header -->
-    <div class="text-center mb-8">
-      <h1 class="font-extrabold text-3xl tracking-tight text-app-primary mb-2">
-        Siply
-      </h1>
+    <div class="flex flex-col items-center justify-center text-center mb-8">
+      <AveniqLogo variant="vertical" class="mb-2" />
       <p class="text-xs text-app-text-muted">El sistema inteligente de gestión para tu local</p>
     </div>
 
@@ -71,7 +69,7 @@
 
     <!-- Footer branding -->
     <div class="text-center mt-8 text-[11px] text-app-text-muted">
-      Siply MVP &copy; 2026 - Conectado a base de datos local
+      Aveniq MVP &copy; 2026 - Conectado a base de datos local
     </div>
   </div>
 </template>
@@ -79,6 +77,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore, type UserRole } from '../stores/auth'
+import AveniqLogo from '../components/AveniqLogo.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()

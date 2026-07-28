@@ -15,7 +15,7 @@ export const useLocalesStore = defineStore('locales', () => {
   const locales = ref<Locale[]>([
     {
       id: 'l1',
-      name: 'Siply Centro',
+      name: 'Aveniq Centro',
       address: 'Calle Mayor 12, Madrid',
       phone: '+34 912 345 678',
       tablesCount: 12,
@@ -24,7 +24,7 @@ export const useLocalesStore = defineStore('locales', () => {
     },
     {
       id: 'l2',
-      name: 'Siply Puerto',
+      name: 'Aveniq Puerto',
       address: 'Paseo Marítimo 45, Barcelona',
       phone: '+34 934 567 890',
       tablesCount: 16,
@@ -33,7 +33,7 @@ export const useLocalesStore = defineStore('locales', () => {
     },
     {
       id: 'l3',
-      name: 'Siply Terraza',
+      name: 'Aveniq Terraza',
       address: 'Avenida de la Constitución 88, Sevilla',
       phone: '+34 954 123 456',
       tablesCount: 8,

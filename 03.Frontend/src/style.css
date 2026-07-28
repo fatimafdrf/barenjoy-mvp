@@ -1,28 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  /* Tokens Principales de Marca Siply */
-  --color-siply-primary: #9235DF;
-  --color-siply-primary-dark: #562AAC;
-  --color-siply-primary-light: #D5ADE3;
-  --color-siply-ink: #08071A;
-  --color-siply-surface: #FCFCFC;
+  /* Tokens Principales de Marca Aveniq */
+  --color-aveniq-primary: #9235DF;
+  --color-aveniq-primary-dark: #562AAC;
+  --color-aveniq-primary-light: #D5ADE3;
+  --color-aveniq-ink: #08071A;
+  --color-aveniq-surface: #FCFCFC;
 
-  /* Escala Completa y Coherente Morado Siply (50-950) */
-  --color-siply-primary-50: #f7f1fd;
-  --color-siply-primary-100: #f0e1fb;
-  --color-siply-primary-200: #d5ade3; /* Equivalente a siply-primary-light */
-  --color-siply-primary-300: #cf9df1;
-  --color-siply-primary-400: #b46ae7;
-  --color-siply-primary-500: #9235df; /* Equivalente a siply-primary */
-  --color-siply-primary-600: #7827be;
-  --color-siply-primary-700: #562aac; /* Equivalente a siply-primary-dark */
-  --color-siply-primary-800: #421e87;
-  --color-siply-primary-900: #29105d;
-  --color-siply-primary-950: #17073c;
+  /* Escala Completa y Coherente Morado Aveniq (50-950) */
+  --color-aveniq-primary-50: #f7f1fd;
+  --color-aveniq-primary-100: #f0e1fb;
+  --color-aveniq-primary-200: #d5ade3; /* Equivalente a aveniq-primary-light */
+  --color-aveniq-primary-300: #cf9df1;
+  --color-aveniq-primary-400: #b46ae7;
+  --color-aveniq-primary-500: #9235df; /* Equivalente a aveniq-primary */
+  --color-aveniq-primary-600: #7827be;
+  --color-aveniq-primary-700: #562aac; /* Equivalente a aveniq-primary-dark */
+  --color-aveniq-primary-800: #421e87;
+  --color-aveniq-primary-900: #29105d;
+  --color-aveniq-primary-950: #17073c;
 
-  /* Tokens semánticos del diseño claro SIPLY */
-  --color-app-background: #F8FAFC;
+  /* Tokens semánticos del diseño claro AVENIQ */
+  --color-app-background: #FCFCFC;
   --color-app-surface: #FFFFFF;
   --color-app-surface-muted: #F1F5F9;
   --color-app-border: #E2E8F0;
@@ -80,20 +80,20 @@
   box-shadow: 0 0 20px rgba(20, 184, 166, 0.15);
 }
 
-/* Nuevas clases de Brillos y Gradientes Auxiliares SIPLY */
-.glow-siply {
+/* Nuevas clases de Brillos y Gradientes Auxiliares AVENIQ */
+.glow-aveniq {
   box-shadow: 0 0 20px rgba(146, 53, 223, 0.15);
 }
 
-.text-gradient-siply {
-  background: linear-gradient(135deg, var(--color-siply-primary-light) 0%, var(--color-siply-primary) 50%, var(--color-siply-primary-dark) 100%);
+.text-gradient-aveniq {
+  background: linear-gradient(135deg, var(--color-aveniq-primary-light) 0%, var(--color-aveniq-primary) 50%, var(--color-aveniq-primary-dark) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.bg-gradient-siply {
-  background: linear-gradient(135deg, var(--color-siply-primary-dark) 0%, var(--color-siply-primary) 50%, var(--color-siply-primary-light) 100%);
+.bg-gradient-aveniq {
+  background: linear-gradient(135deg, var(--color-aveniq-primary-dark) 0%, var(--color-aveniq-primary) 50%, var(--color-aveniq-primary-light) 100%);
 }
 
 /* Navigation link active styles */

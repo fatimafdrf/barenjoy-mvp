@@ -17,11 +17,7 @@
       <div>
         <!-- Logo -->
         <div class="h-16 flex items-center justify-between px-6 border-b border-app-border">
-          <div class="flex items-center gap-3">
-            <h1 class="font-extrabold text-2xl tracking-tight text-app-primary">
-              Siply
-            </h1>
-          </div>
+          <AveniqLogo variant="horizontal" />
           
           <button @click="mobileOpen = false" class="lg:hidden p-1 text-slate-500 hover:text-slate-800">
             <i class="pi pi-times"></i>
@@ -34,7 +30,7 @@
             v-for="item in navItems" 
             :key="item.to" 
             :to="item.to" 
-            active-class="siply-nav-active"
+            active-class="aveniq-nav-active"
             @click="mobileOpen = false"
             class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:text-app-text hover:bg-slate-50 transition-all duration-200"
           >
@@ -146,6 +142,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useLocalesStore } from '../stores/locales'
 import { useMesasStore } from '../stores/mesas'
+import AveniqLogo from '../components/AveniqLogo.vue'
 
 // Import Lucide Icons
 import { 
@@ -220,7 +217,7 @@ const handleLogout = () => {
 </script>
 
 <style scoped>
-.siply-nav-active {
+.aveniq-nav-active {
   background-color: var(--color-app-primary-soft);
   color: var(--color-app-primary);
   box-shadow: inset 3px 0 0 var(--color-app-primary);

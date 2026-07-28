@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" width="120" height="120">
+  <defs>
+    <linearGradient id="aveniq-vertical-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9235DF" />
+      <stop offset="100%" stop-color="#562AAC" />
+    </linearGradient>
+  </defs>
+  <!-- Icon (centered horizontally, height 60) -->
+  <g transform="translate(30, 10) scale(0.6)">
+    <path 
+      d="M 50 10 
+         C 40 10, 32 18, 28 28
+         L 8 72
+         C 4 80, 10 90, 19 90
+         L 32 90
+         C 37 90, 42 86, 44 80
+         L 50 64
+         L 56 80
+         C 58 86, 63 90, 68 90
+         L 81 90
+         C 90 90, 96 80, 92 72
+         L 72 28
+         C 68 18, 60 10, 50 10 Z
+         M 50 36
+         A 9 9 0 1 1 50 54
+         A 9 9 0 1 1 50 36 Z" 
+      fill="url(#aveniq-vertical-grad)" 
+      fill-rule="evenodd" 
+    />
+  </g>
+  <!-- Text (centered) -->
+  <text x="60" y="95" font-family="Outfit, Inter, sans-serif" font-weight="900" font-size="22" fill="#9235DF" letter-spacing="-0.5" text-anchor="middle">Aveniq</text>
+</svg>

@@ -48,7 +48,7 @@ export const useMesasStore = defineStore('mesas', () => {
       orders: [
         { id: 'o1', menuItemId: 'm1', name: 'Croquetas de Jamón Ibérico', quantity: 1, price: 8.5, status: 'preparing', category: 'tapas' },
         { id: 'o2', menuItemId: 'm7', name: 'Caña de Cerveza', quantity: 2, price: 2.5, status: 'served', category: 'bebidas' },
-        { id: 'o3', menuItemId: 'm2', name: 'Bravas Siply', quantity: 1, price: 6.9, status: 'pending', category: 'tapas' }
+        { id: 'o3', menuItemId: 'm2', name: 'Bravas Aveniq', quantity: 1, price: 6.9, status: 'pending', category: 'tapas' }
       ]
     },
     { id: 't3', number: 3, capacity: 2, status: 'reserved', x: 15, y: 75, orders: [] },

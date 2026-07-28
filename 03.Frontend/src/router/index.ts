@@ -23,7 +23,7 @@ const routes = [
         path: 'login',
         name: 'login',
         component: LoginView,
-        meta: { title: 'Iniciar Sesión - Siply' }
+        meta: { title: 'Iniciar Sesión - Aveniq' }
       }
     ]
   },
@@ -36,37 +36,37 @@ const routes = [
         path: '',
         name: 'dashboard',
         component: DashboardView,
-        meta: { title: 'Dashboard - Siply' }
+        meta: { title: 'Dashboard - Aveniq' }
       },
       {
         path: 'locales',
         name: 'locales',
         component: LocalesView,
-        meta: { title: 'Locales - Siply' }
+        meta: { title: 'Locales - Aveniq' }
       },
       {
         path: 'mesas',
         name: 'mesas',
         component: MesasView,
-        meta: { title: 'Mapa de Mesas - Siply' }
+        meta: { title: 'Mapa de Mesas - Aveniq' }
       },
       {
         path: 'carta',
         name: 'carta',
         component: CartaView,
-        meta: { title: 'Carta & Menú - Siply' }
+        meta: { title: 'Carta & Menú - Aveniq' }
       },
       {
         path: 'cocina',
         name: 'cocina',
         component: CocinaView,
-        meta: { title: 'Pantalla de Cocina - Siply' }
+        meta: { title: 'Pantalla de Cocina - Aveniq' }
       },
       {
         path: 'barra',
         name: 'barra',
         component: BarraView,
-        meta: { title: 'Pantalla de Barra - Siply' }
+        meta: { title: 'Pantalla de Barra - Aveniq' }
       }
     ]
   },
