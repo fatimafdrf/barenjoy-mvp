@@ -18,6 +18,7 @@ import CrmView from '../views/CrmView.vue'
 import InventarioView from '../views/InventarioView.vue'
 import EscandallosView from '../views/EscandallosView.vue'
 import BiView from '../views/BiView.vue'
+import PersonalView from '../views/PersonalView.vue'
 
 const routes = [
   {
@@ -84,6 +85,12 @@ const routes = [
         name: 'bi',
         component: BiView,
         meta: { title: 'Business Intelligence Ejecutivo - Aveniq' }
+      },
+      {
+        path: 'personal',
+        name: 'personal',
+        component: PersonalView,
+        meta: { title: 'Gestión de Personal y Turnos - Aveniq' }
       },
       {
         path: 'carta',

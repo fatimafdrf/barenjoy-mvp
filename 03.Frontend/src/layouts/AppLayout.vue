@@ -156,7 +156,8 @@ import {
   Users,
   Package,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  UserCheck
 } from '@lucide/vue'
 
 const authStore = useAuthStore()
@@ -173,6 +174,7 @@ const navItems = computed(() => [
   { name: 'Inventario (Almacén)', to: '/inventario', icon: Package },
   { name: 'Escandallos (Costes)', to: '/escandallos', icon: TrendingUp },
   { name: 'Business Intelligence', to: '/bi', icon: BarChart3 },
+  { name: 'Gestión Personal', to: '/personal', icon: UserCheck },
   { name: 'Caja Registradora', to: '/locales', icon: CreditCard },
   { name: 'Mapa de Mesas', to: '/mesas', icon: Grid2X2 },
   { name: 'Carta / Menú', to: '/carta', icon: Utensils },

@@ -409,6 +409,36 @@
             </div>
           </div>
 
+          <!-- 8. KPI GESTIÓN PERSONAL (WORKFORCE) -->
+          <div class="space-y-4">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Gestión de Personal (Equipo)</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <!-- Empleados Activos -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-slate-350 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Empleados Activos</span>
+                <span class="text-xl font-black text-slate-800 block">{{ wfActiveEmployees }}</span>
+              </div>
+
+              <!-- En Turno -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-[#9235DF]/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">En Turno</span>
+                <span class="text-xl font-black text-[#9235DF] block">{{ wfEmployeesOnShift }}</span>
+              </div>
+
+              <!-- Coste Laboral Hoy -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Coste Laboral Hoy</span>
+                <span class="text-xl font-black text-rose-650 block">{{ wfLabourCostToday.toFixed(2) }} €</span>
+              </div>
+
+              <!-- Productividad -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Productividad</span>
+                <span class="text-xl font-black text-emerald-650 block">{{ wfProductivityRatio.toFixed(1) }}x</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- RIGHT COLUMN: HEALTH CENTER & STRIPE TRANSACTIONS FEED -->
@@ -670,6 +700,7 @@ import { useReservasStore } from '../stores/reservas'
 import { useCrmStore } from '../stores/crm'
 import { useInventarioStore } from '../stores/inventario'
 import { useEscandallosStore } from '../stores/escandallos'
+import { usePersonalStore } from '../stores/personal'
 
 const authStore = useAuthStore()
 const mesasStore = useMesasStore()
@@ -677,6 +708,7 @@ const reservasStore = useReservasStore()
 const crmStore = useCrmStore()
 const inventarioStore = useInventarioStore()
 const escandallosStore = useEscandallosStore()
+const personalStore = usePersonalStore()
 
 // Centralized mock data clearly marked as demonstration values
 const demoData = {
@@ -897,6 +929,27 @@ const fcProductoMenosRentable = computed(() => {
   if (escandallosStore.recipesWithCosts.length === 0) return 'Ninguno'
   const sorted = [...escandallosStore.recipesWithCosts].sort((a, b) => a.marginPercent - b.marginPercent)
   return `${sorted[0].name} (${sorted[0].marginPercent.toFixed(0)}%)`
+})
+
+const wfActiveEmployees = computed(() => {
+  return personalStore.employees.length
+})
+
+const wfEmployeesOnShift = computed(() => {
+  return personalStore.employees.filter(e => e.status === 'activo' || e.status === 'descanso').length
+})
+
+const wfLabourCostToday = computed(() => {
+  return personalStore.employees
+    .filter(e => e.status === 'activo' || e.status === 'descanso')
+    .reduce((sum, e) => sum + (e.hourlyCost * 8), 0)
+})
+
+const wfProductivityRatio = computed(() => {
+  const salesToday = mesasStore.completedOrders.reduce((sum, o) => sum + o.total, 0)
+  const costToday = wfLabourCostToday.value
+  if (costToday === 0) return 0
+  return salesToday / costToday
 })
 
 // Simulate random sale
