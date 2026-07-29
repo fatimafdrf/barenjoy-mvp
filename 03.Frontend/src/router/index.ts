@@ -19,6 +19,7 @@ import InventarioView from '../views/InventarioView.vue'
 import EscandallosView from '../views/EscandallosView.vue'
 import BiView from '../views/BiView.vue'
 import PersonalView from '../views/PersonalView.vue'
+import AvaView from '../views/AvaView.vue'
 
 const routes = [
   {
@@ -91,6 +92,12 @@ const routes = [
         name: 'personal',
         component: PersonalView,
         meta: { title: 'Gestión de Personal y Turnos - Aveniq' }
+      },
+      {
+        path: 'ava',
+        name: 'ava',
+        component: AvaView,
+        meta: { title: 'AVA AI Director de Operaciones - Aveniq' }
       },
       {
         path: 'carta',

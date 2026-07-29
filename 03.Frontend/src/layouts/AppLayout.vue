@@ -157,7 +157,8 @@ import {
   Package,
   TrendingUp,
   BarChart3,
-  UserCheck
+  UserCheck,
+  Sparkles
 } from '@lucide/vue'
 
 const authStore = useAuthStore()
@@ -175,6 +176,7 @@ const navItems = computed(() => [
   { name: 'Escandallos (Costes)', to: '/escandallos', icon: TrendingUp },
   { name: 'Business Intelligence', to: '/bi', icon: BarChart3 },
   { name: 'Gestión Personal', to: '/personal', icon: UserCheck },
+  { name: 'Asistente AVA AI', to: '/ava', icon: Sparkles },
   { name: 'Caja Registradora', to: '/locales', icon: CreditCard },
   { name: 'Mapa de Mesas', to: '/mesas', icon: Grid2X2 },
   { name: 'Carta / Menú', to: '/carta', icon: Utensils },
