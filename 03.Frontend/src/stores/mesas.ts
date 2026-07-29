@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { useReservasStore } from './reservas'
+import { useCrmStore } from './crm'
 
 export type TableStatus = 'free' | 'occupied' | 'reserved' | 'bill'
 export type OrderItemStatus = 'pending' | 'preparing' | 'ready' | 'served'
@@ -284,6 +286,15 @@ export const useMesasStore = defineStore('mesas', () => {
           timestamp
         })
         saveCompletedOrders()
+
+        // Sincronizar automáticamente con Reservas y CRM
+        const reservasStore = useReservasStore()
+        const crmStore = useCrmStore()
+        const activeRes = reservasStore.reservations.find(r => r.tableId === table.id && r.status === 'seated')
+        if (activeRes) {
+          crmStore.addVisit(activeRes.clientName, total, table.number)
+          activeRes.status = 'finished'
+        }
       }
       
       table.status = 'free'

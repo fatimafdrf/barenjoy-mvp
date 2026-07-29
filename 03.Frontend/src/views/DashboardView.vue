@@ -313,6 +313,42 @@
             </div>
           </div>
 
+          <!-- 5. KPI CRM CUSTOMER 360 -->
+          <div class="space-y-4">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Resumen CRM (Clientes)</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <!-- Clientes Activos -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-[#9235DF]/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Clientes Activos</span>
+                <span class="text-xl font-black text-slate-800 block">{{ crmActiveClients }}</span>
+              </div>
+
+              <!-- Clientes Nuevos -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-[#9235DF]/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Clientes Nuevos</span>
+                <span class="text-xl font-black text-slate-800 block">{{ crmNewClients }}</span>
+              </div>
+
+              <!-- Clientes VIP -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Clientes VIP</span>
+                <span class="text-xl font-black text-amber-600 block">{{ crmVipClients }}</span>
+              </div>
+
+              <!-- Ticket Medio Global -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ticket Medio (CRM)</span>
+                <span class="text-xl font-black text-emerald-600 block">{{ crmAvgTicketGlobal.toFixed(2) }} €</span>
+              </div>
+
+              <!-- Clientes con Reserva Hoy -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Reserva Hoy (CRM)</span>
+                <span class="text-xl font-black text-indigo-600 block">{{ crmClientsResToday }}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- RIGHT COLUMN: HEALTH CENTER & STRIPE TRANSACTIONS FEED -->
@@ -571,10 +607,12 @@ import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useMesasStore } from '../stores/mesas'
 import { useReservasStore } from '../stores/reservas'
+import { useCrmStore } from '../stores/crm'
 
 const authStore = useAuthStore()
 const mesasStore = useMesasStore()
 const reservasStore = useReservasStore()
+const crmStore = useCrmStore()
 
 // Centralized mock data clearly marked as demonstration values
 const demoData = {
@@ -731,6 +769,29 @@ const expectedOccupation = computed(() => {
   if (totalCapacity === 0) return 0
   const bookedCapacity = reservationsToday.value.filter(r => r.status !== 'cancelled').reduce((sum, r) => sum + r.pax, 0)
   return Math.min(100, Math.round((bookedCapacity / totalCapacity) * 100))
+})
+
+const crmActiveClients = computed(() => {
+  return crmStore.clients.filter(c => c.visitsCount >= 4).length
+})
+
+const crmNewClients = computed(() => {
+  return crmStore.clients.filter(c => c.visitsCount <= 1).length
+})
+
+const crmVipClients = computed(() => {
+  return crmStore.clients.filter(c => c.tags.includes('VIP')).length
+})
+
+const crmAvgTicketGlobal = computed(() => {
+  const active = crmStore.clients.filter(c => c.visitsCount > 0)
+  if (active.length === 0) return 0
+  return active.reduce((sum, c) => sum + c.avgTicket, 0) / active.length
+})
+
+const crmClientsResToday = computed(() => {
+  const todayStr = new Date().toISOString().split('T')[0]
+  return new Set(reservasStore.reservations.filter(r => r.date === todayStr && r.status !== 'cancelled').map(r => r.clientName.toLowerCase())).size
 })
 
 // Simulate random sale

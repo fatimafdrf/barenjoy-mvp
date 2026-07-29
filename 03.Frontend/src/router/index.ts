@@ -14,6 +14,7 @@ import CartaView from '../views/CartaView.vue'
 import CocinaView from '../views/CocinaView.vue'
 import BarraView from '../views/BarraView.vue'
 import ReservasView from '../views/ReservasView.vue'
+import CrmView from '../views/CrmView.vue'
 
 const routes = [
   {
@@ -56,6 +57,12 @@ const routes = [
         name: 'reservas',
         component: ReservasView,
         meta: { title: 'Gestión de Reservas - Aveniq' }
+      },
+      {
+        path: 'crm',
+        name: 'crm',
+        component: CrmView,
+        meta: { title: 'Gestión de Clientes CRM - Aveniq' }
       },
       {
         path: 'carta',

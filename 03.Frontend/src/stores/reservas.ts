@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { useMesasStore } from './mesas'
+import { useCrmStore } from './crm'
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'seated' | 'finished' | 'cancelled' | 'noshow'
 
@@ -132,12 +133,18 @@ export const useReservasStore = defineStore('reservas', () => {
       id: 'r-' + Math.random().toString(36).substr(2, 9)
     }
     reservations.value.push(newRes)
-    
+
     // Sync status 'reserved' on tables if assigned
     if (newRes.tableId && newRes.status === 'confirmed' && newRes.date === todayStr) {
       mesasStore.setTableStatus(newRes.tableId, 'reserved')
     }
-    
+
+    // Sincronizar con CRM
+    const crmStore = useCrmStore()
+    if (newRes.status === 'confirmed') {
+      crmStore.addBookingEvent(newRes.clientName, newRes.time, 'confirmed')
+    }
+
     saveReservations()
     return newRes
   }
@@ -146,7 +153,7 @@ export const useReservasStore = defineStore('reservas', () => {
     const res = reservations.value.find(r => r.id === id)
     if (res) {
       Object.assign(res, updates)
-      
+
       // Sync reserved table state
       if (res.tableId && res.date === todayStr) {
         if (res.status === 'confirmed') {
@@ -159,7 +166,13 @@ export const useReservasStore = defineStore('reservas', () => {
           }
         }
       }
-      
+
+      // Sincronizar estado de reserva con CRM
+      if (updates.status && (updates.status === 'confirmed' || updates.status === 'noshow' || updates.status === 'cancelled')) {
+        const crmStore = useCrmStore()
+        crmStore.addBookingEvent(res.clientName, res.time, updates.status)
+      }
+
       saveReservations()
       return true
     }
@@ -188,7 +201,7 @@ export const useReservasStore = defineStore('reservas', () => {
     if (res) {
       res.status = 'seated'
       res.tableId = tableId
-      
+
       // Coordinate with mesas store to occupy the table
       const table = mesasStore.tables.find(t => t.id === tableId)
       if (table) {
@@ -207,7 +220,7 @@ export const useReservasStore = defineStore('reservas', () => {
           })
         }
       }
-      
+
       saveReservations()
       return true
     }
