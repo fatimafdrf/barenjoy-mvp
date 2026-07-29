@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useReservasStore } from './reservas'
 import { useCrmStore } from './crm'
+import { useInventarioStore } from './inventario'
 
 export type TableStatus = 'free' | 'occupied' | 'reserved' | 'bill'
 export type OrderItemStatus = 'pending' | 'preparing' | 'ready' | 'served'
@@ -211,9 +212,9 @@ export const useMesasStore = defineStore('mesas', () => {
       }
       itemsToAdd.forEach(item => {
         const normalizedNote = item.notes?.trim() || ''
-        const existing = table.orders.find(o => 
-          o.menuItemId === item.id && 
-          o.status === 'pending' && 
+        const existing = table.orders.find(o =>
+          o.menuItemId === item.id &&
+          o.status === 'pending' &&
           (o.notes?.trim() || '') === normalizedNote
         )
         if (existing) {
@@ -240,7 +241,16 @@ export const useMesasStore = defineStore('mesas', () => {
     if (table) {
       const item = table.orders.find(o => o.id === orderItemId)
       if (item) {
+        const oldStatus = item.status
         item.status = status
+
+        // Descontar automáticamente stock de ingredientes si pasa a 'ready'
+        if (status === 'ready' && oldStatus !== 'ready') {
+          const inventarioStore = useInventarioStore()
+          const source = item.category === 'bebidas' ? 'Barra (BDS)' : 'Cocina (KDS)'
+          inventarioStore.discountRawStock(item.name, item.quantity, source)
+        }
+
         saveTables()
       }
     }
@@ -251,10 +261,10 @@ export const useMesasStore = defineStore('mesas', () => {
     if (!table || table.orders.length === 0) {
       return { canCheckout: false, hasUnfinished: false, hasReadyUnserved: false }
     }
-    
+
     const hasUnfinished = table.orders.some(o => o.status === 'pending' || o.status === 'preparing')
     const hasReadyUnserved = table.orders.some(o => o.status === 'ready')
-    
+
     return {
       canCheckout: !hasUnfinished,
       hasUnfinished,
@@ -272,11 +282,11 @@ export const useMesasStore = defineStore('mesas', () => {
 
       const total = table.orders.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       const itemsCount = table.orders.reduce((sum, item) => sum + item.quantity, 0)
-      
+
       if (total > 0) {
         const now = new Date()
         const timestamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-        
+
         completedOrders.value.push({
           id: 'c-' + Math.random().toString(36).substr(2, 9),
           tableNumber: table.number,
@@ -295,8 +305,20 @@ export const useMesasStore = defineStore('mesas', () => {
           crmStore.addVisit(activeRes.clientName, total, table.number)
           activeRes.status = 'finished'
         }
+
+        // Registrar movimientos de salida por venta comercial en el Almacén/ERP
+        const inventarioStore = useInventarioStore()
+        table.orders.forEach(item => {
+          inventarioStore.addMovement({
+            user: 'Caja POS',
+            type: 'salida',
+            productName: item.name,
+            quantity: -item.quantity,
+            reason: `Venta Caja POS - Mesa ${table.number}`
+          })
+        })
       }
-      
+
       table.status = 'free'
       table.orders = []
       saveTables()

@@ -153,7 +153,9 @@ import {
   Grid2X2,
   Utensils,
   Calendar,
-  Users
+  Users,
+  Package,
+  TrendingUp
 } from '@lucide/vue'
 
 const authStore = useAuthStore()
@@ -167,6 +169,8 @@ const navItems = computed(() => [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
   { name: 'Reservas', to: '/reservas', icon: Calendar },
   { name: 'Clientes (CRM)', to: '/crm', icon: Users },
+  { name: 'Inventario (Almacén)', to: '/inventario', icon: Package },
+  { name: 'Escandallos (Costes)', to: '/escandallos', icon: TrendingUp },
   { name: 'Caja Registradora', to: '/locales', icon: CreditCard },
   { name: 'Mapa de Mesas', to: '/mesas', icon: Grid2X2 },
   { name: 'Carta / Menú', to: '/carta', icon: Utensils },

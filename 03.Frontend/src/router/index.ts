@@ -15,6 +15,8 @@ import CocinaView from '../views/CocinaView.vue'
 import BarraView from '../views/BarraView.vue'
 import ReservasView from '../views/ReservasView.vue'
 import CrmView from '../views/CrmView.vue'
+import InventarioView from '../views/InventarioView.vue'
+import EscandallosView from '../views/EscandallosView.vue'
 
 const routes = [
   {
@@ -63,6 +65,18 @@ const routes = [
         name: 'crm',
         component: CrmView,
         meta: { title: 'Gestión de Clientes CRM - Aveniq' }
+      },
+      {
+        path: 'inventario',
+        name: 'inventario',
+        component: InventarioView,
+        meta: { title: 'Gestión de Almacén e Inventario - Aveniq' }
+      },
+      {
+        path: 'escandallos',
+        name: 'escandallos',
+        component: EscandallosView,
+        meta: { title: 'Escandallos y Costes Gastronómicos - Aveniq' }
       },
       {
         path: 'carta',

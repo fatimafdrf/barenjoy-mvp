@@ -349,6 +349,66 @@
             </div>
           </div>
 
+          <!-- 6. KPI INVENTARIO ALMACÉN (ERP) -->
+          <div class="space-y-4">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Resumen de Almacén (ERP)</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <!-- Productos Críticos -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Productos Críticos</span>
+                <span class="text-xl font-black text-amber-600 block">{{ erpCriticalProducts }}</span>
+              </div>
+
+              <!-- Valor Almacén -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Valor Almacén</span>
+                <span class="text-xl font-black text-emerald-600 block">{{ erpWarehouseValue.toFixed(2) }} €</span>
+              </div>
+
+              <!-- Productos Agotados -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Productos Agotados</span>
+                <span class="text-xl font-black text-rose-600 block">{{ erpOutOfStockProducts }}</span>
+              </div>
+
+              <!-- Movimientos Hoy -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Movimientos Hoy</span>
+                <span class="text-xl font-black text-indigo-600 block">{{ erpMovementsTodayCount }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7. KPI ESCANDALLOS COSTES (FINANZAS) -->
+          <div class="space-y-4">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Análisis de Escandallos (Finanzas)</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <!-- Coste Medio Plato -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-[#9235DF]/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Coste Medio Plato</span>
+                <span class="text-xl font-black text-slate-800 block">{{ fcCosteMedioPlato.toFixed(2) }} €</span>
+              </div>
+
+              <!-- Margen Medio -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Margen Medio</span>
+                <span class="text-xl font-black text-emerald-600 block">{{ fcMargenMedio.toFixed(0) }} %</span>
+              </div>
+
+              <!-- Producto Más Rentable -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Más Rentable (Margen)</span>
+                <span class="text-xs font-black text-indigo-600 block mt-1 truncate" :title="fcProductoMasRentable">{{ fcProductoMasRentable }}</span>
+              </div>
+
+              <!-- Producto Menos Rentable -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-150 shadow-sm space-y-2 relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Menos Rentable (Margen)</span>
+                <span class="text-xs font-black text-rose-600 block mt-1 truncate" :title="fcProductoMenosRentable">{{ fcProductoMenosRentable }}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- RIGHT COLUMN: HEALTH CENTER & STRIPE TRANSACTIONS FEED -->
@@ -608,11 +668,15 @@ import { useAuthStore } from '../stores/auth'
 import { useMesasStore } from '../stores/mesas'
 import { useReservasStore } from '../stores/reservas'
 import { useCrmStore } from '../stores/crm'
+import { useInventarioStore } from '../stores/inventario'
+import { useEscandallosStore } from '../stores/escandallos'
 
 const authStore = useAuthStore()
 const mesasStore = useMesasStore()
 const reservasStore = useReservasStore()
 const crmStore = useCrmStore()
+const inventarioStore = useInventarioStore()
+const escandallosStore = useEscandallosStore()
 
 // Centralized mock data clearly marked as demonstration values
 const demoData = {
@@ -792,6 +856,47 @@ const crmAvgTicketGlobal = computed(() => {
 const crmClientsResToday = computed(() => {
   const todayStr = new Date().toISOString().split('T')[0]
   return new Set(reservasStore.reservations.filter(r => r.date === todayStr && r.status !== 'cancelled').map(r => r.clientName.toLowerCase())).size
+})
+
+const erpCriticalProducts = computed(() => {
+  return inventarioStore.products.filter(p => p.stock < p.minStock && p.stock > 0).length
+})
+
+const erpWarehouseValue = computed(() => {
+  return inventarioStore.products.reduce((sum, p) => sum + (p.stock * p.cost), 0)
+})
+
+const erpOutOfStockProducts = computed(() => {
+  return inventarioStore.products.filter(p => p.stock === 0).length
+})
+
+const erpMovementsTodayCount = computed(() => {
+  const todayStr = new Date().toISOString().split('T')[0]
+  return inventarioStore.movements.filter(m => m.date === todayStr).length
+})
+
+const fcCosteMedioPlato = computed(() => {
+  const len = escandallosStore.recipesWithCosts.length
+  if (len === 0) return 0
+  return escandallosStore.recipesWithCosts.reduce((sum, r) => sum + r.totalCost, 0) / len
+})
+
+const fcMargenMedio = computed(() => {
+  const len = escandallosStore.recipesWithCosts.length
+  if (len === 0) return 0
+  return escandallosStore.recipesWithCosts.reduce((sum, r) => sum + r.marginPercent, 0) / len
+})
+
+const fcProductoMasRentable = computed(() => {
+  if (escandallosStore.recipesWithCosts.length === 0) return 'Ninguno'
+  const sorted = [...escandallosStore.recipesWithCosts].sort((a, b) => b.marginPercent - a.marginPercent)
+  return `${sorted[0].name} (${sorted[0].marginPercent.toFixed(0)}%)`
+})
+
+const fcProductoMenosRentable = computed(() => {
+  if (escandallosStore.recipesWithCosts.length === 0) return 'Ninguno'
+  const sorted = [...escandallosStore.recipesWithCosts].sort((a, b) => a.marginPercent - b.marginPercent)
+  return `${sorted[0].name} (${sorted[0].marginPercent.toFixed(0)}%)`
 })
 
 // Simulate random sale
