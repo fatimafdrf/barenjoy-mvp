@@ -5,22 +5,6 @@ import { useAuthStore } from '../stores/auth'
 import AppLayout from '../layouts/AppLayout.vue'
 import AuthLayout from '../layouts/AuthLayout.vue'
 
-// Views
-import LoginView from '../views/LoginView.vue'
-import DashboardView from '../views/DashboardView.vue'
-import LocalesView from '../views/LocalesView.vue'
-import MesasView from '../views/MesasView.vue'
-import CartaView from '../views/CartaView.vue'
-import CocinaView from '../views/CocinaView.vue'
-import BarraView from '../views/BarraView.vue'
-import ReservasView from '../views/ReservasView.vue'
-import CrmView from '../views/CrmView.vue'
-import InventarioView from '../views/InventarioView.vue'
-import EscandallosView from '../views/EscandallosView.vue'
-import BiView from '../views/BiView.vue'
-import PersonalView from '../views/PersonalView.vue'
-import AvaView from '../views/AvaView.vue'
-
 const routes = [
   {
     path: '/auth',
@@ -29,7 +13,7 @@ const routes = [
       {
         path: 'login',
         name: 'login',
-        component: LoginView,
+        component: () => import('../views/LoginView.vue'),
         meta: { title: 'Iniciar Sesión - Aveniq' }
       }
     ]
@@ -42,80 +26,80 @@ const routes = [
       {
         path: '',
         name: 'dashboard',
-        component: DashboardView,
-        meta: { title: 'Dashboard - Aveniq' }
+        component: () => import('../views/DashboardView.vue'),
+        meta: { title: 'Dashboard - Aveniq', roles: ['admin', 'waiter', 'kitchen', 'bar'] }
       },
       {
         path: 'locales',
         name: 'locales',
-        component: LocalesView,
-        meta: { title: 'Locales - Aveniq' }
+        component: () => import('../views/LocalesView.vue'),
+        meta: { title: 'Locales - Aveniq', roles: ['admin', 'waiter'] }
       },
       {
         path: 'mesas',
         name: 'mesas',
-        component: MesasView,
-        meta: { title: 'Mapa de Mesas - Aveniq' }
+        component: () => import('../views/MesasView.vue'),
+        meta: { title: 'Mapa de Mesas - Aveniq', roles: ['admin', 'waiter'] }
       },
       {
         path: 'reservas',
         name: 'reservas',
-        component: ReservasView,
-        meta: { title: 'Gestión de Reservas - Aveniq' }
+        component: () => import('../views/ReservasView.vue'),
+        meta: { title: 'Gestión de Reservas - Aveniq', roles: ['admin', 'waiter'] }
       },
       {
         path: 'crm',
         name: 'crm',
-        component: CrmView,
-        meta: { title: 'Gestión de Clientes CRM - Aveniq' }
+        component: () => import('../views/CrmView.vue'),
+        meta: { title: 'Gestión de Clientes CRM - Aveniq', roles: ['admin', 'waiter'] }
       },
       {
         path: 'inventario',
         name: 'inventario',
-        component: InventarioView,
-        meta: { title: 'Gestión de Almacén e Inventario - Aveniq' }
+        component: () => import('../views/InventarioView.vue'),
+        meta: { title: 'Gestión de Almacén e Inventario - Aveniq', roles: ['admin'] }
       },
       {
         path: 'escandallos',
         name: 'escandallos',
-        component: EscandallosView,
-        meta: { title: 'Escandallos y Costes Gastronómicos - Aveniq' }
+        component: () => import('../views/EscandallosView.vue'),
+        meta: { title: 'Escandallos y Costes Gastronómicos - Aveniq', roles: ['admin'] }
       },
       {
         path: 'bi',
         name: 'bi',
-        component: BiView,
-        meta: { title: 'Business Intelligence Ejecutivo - Aveniq' }
+        component: () => import('../views/BiView.vue'),
+        meta: { title: 'Business Intelligence Ejecutivo - Aveniq', roles: ['admin'] }
       },
       {
         path: 'personal',
         name: 'personal',
-        component: PersonalView,
-        meta: { title: 'Gestión de Personal y Turnos - Aveniq' }
+        component: () => import('../views/PersonalView.vue'),
+        meta: { title: 'Gestión de Personal y Turnos - Aveniq', roles: ['admin'] }
       },
       {
         path: 'ava',
         name: 'ava',
-        component: AvaView,
-        meta: { title: 'AVA AI Director de Operaciones - Aveniq' }
+        component: () => import('../views/AvaView.vue'),
+        meta: { title: 'AVA AI Director de Operaciones - Aveniq', roles: ['admin'] }
       },
       {
         path: 'carta',
         name: 'carta',
-        component: CartaView,
-        meta: { title: 'Carta & Menú - Aveniq' }
+        component: () => import('../views/CartaView.vue'),
+        meta: { title: 'Carta & Menú - Aveniq', roles: ['admin', 'waiter'] }
       },
       {
         path: 'cocina',
         name: 'cocina',
-        component: CocinaView,
-        meta: { title: 'Pantalla de Cocina - Aveniq' }
+        component: () => import('../views/CocinaView.vue'),
+        meta: { title: 'Pantalla de Cocina - Aveniq', roles: ['admin', 'kitchen'] }
       },
       {
         path: 'barra',
         name: 'barra',
-        component: BarraView,
-        meta: { title: 'Pantalla de Barra - Aveniq' }
+        component: () => import('../views/BarraView.vue'),
+        meta: { title: 'Pantalla de Barra - Aveniq', roles: ['admin', 'bar'] }
       }
     ]
   },
@@ -139,11 +123,22 @@ router.beforeEach((to, _from, next) => {
     document.title = to.meta.title as string
   }
 
-  if (to.matched.some(record => record.meta.requiresAuth)) {
+  const isAuthRequired = to.matched.some(record => record.meta.requiresAuth)
+
+  if (isAuthRequired) {
     if (!authStore.isAuthenticated) {
       next({ name: 'login' })
     } else {
-      next()
+      // Validate roles if restricted
+      const userRole = authStore.user?.role
+      const allowedRoles = to.meta.roles as string[] | undefined
+
+      if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
+        // Redirige al Dashboard si no tiene permisos
+        next({ name: 'dashboard' })
+      } else {
+        next()
+      }
     }
   } else {
     // If user is authenticated and tries to open login page, redirect to dashboard
