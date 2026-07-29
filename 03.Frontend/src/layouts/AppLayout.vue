@@ -27,7 +27,7 @@
         <!-- Navigation Menu -->
         <nav class="p-4 space-y-1">
           <router-link
-            v-for="item in navItems"
+            v-for="item in filteredNavItems"
             :key="item.to"
             :to="item.to"
             active-class="aveniq-nav-active"
@@ -193,6 +193,21 @@ const navItems = computed(() => [
     badge: mesasStore.barItems.filter(i => i.item.status !== 'ready').length || undefined
   }
 ])
+
+const filteredNavItems = computed(() => {
+  const userRole = authStore.user?.role
+  if (!userRole) return []
+
+  return navItems.value.filter(item => {
+    const resolved = router.resolve(item.to)
+    if (!resolved || resolved.name === '404') return false
+
+    const allowedRoles = resolved.meta?.roles as string[] | undefined
+    if (!allowedRoles) return true
+
+    return allowedRoles.includes(userRole)
+  })
+})
 
 // Get initials of user
 const userInitials = computed(() => {
