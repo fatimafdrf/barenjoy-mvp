@@ -282,6 +282,42 @@
         <!-- RIGHT COLUMN: HEALTH CENTER & STRIPE TRANSACTIONS FEED -->
         <div class="space-y-10">
 
+          <!-- MONITOREO LIVE KDS/BDS -->
+          <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+            <div class="space-y-1">
+              <span class="text-[10px] font-bold text-[#9235DF] uppercase tracking-wider">Monitoreo Live</span>
+              <h4 class="text-base font-black text-[#08071A] font-outfit">Control de Comandas (KDS)</h4>
+              <p class="text-xs text-slate-400">Estado operativo y métricas de preparación activas.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Pedidos Activos</span>
+                <span class="text-base font-black text-slate-800">{{ activeOrdersCount }}</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">En Cocina</span>
+                <span class="text-base font-black text-amber-600">{{ kitchenOrdersCount }}</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">En Barra</span>
+                <span class="text-base font-black text-blue-600">{{ barOrdersCount }}</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Total Servidos</span>
+                <span class="text-base font-black text-emerald-600">{{ servedOrdersCount }}</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Tiempo Medio</span>
+                <span class="text-base font-black text-slate-800">{{ avgPrepTime }} min</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Mesas Ocupadas</span>
+                <span class="text-base font-black text-[#9235DF]">{{ occupiedTablesCount }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- HEALTH CENTER CONSOLIDADO -->
           <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
             <div class="space-y-1">
@@ -600,6 +636,38 @@ const toggleNotifications = () => {
     toastMessage.value = null
   }, 2500)
 }
+
+const activeOrdersCount = computed(() => {
+  return mesasStore.tables.reduce((sum, t) =>
+    sum + t.orders.filter(o => o.status === 'pending' || o.status === 'preparing').reduce((s, item) => s + item.quantity, 0)
+  , 0)
+})
+
+const kitchenOrdersCount = computed(() => {
+  return mesasStore.tables.reduce((sum, t) =>
+    sum + t.orders.filter(o => o.category !== 'bebidas' && (o.status === 'pending' || o.status === 'preparing')).reduce((s, item) => s + item.quantity, 0)
+  , 0)
+})
+
+const barOrdersCount = computed(() => {
+  return mesasStore.tables.reduce((sum, t) =>
+    sum + t.orders.filter(o => o.category === 'bebidas' && (o.status === 'pending' || o.status === 'preparing')).reduce((s, item) => s + item.quantity, 0)
+  , 0)
+})
+
+const servedOrdersCount = computed(() => {
+  const activeServed = mesasStore.tables.reduce((sum, t) =>
+    sum + t.orders.filter(o => o.status === 'served').reduce((s, item) => s + item.quantity, 0)
+  , 0)
+  const historicalServed = mesasStore.completedOrders.reduce((sum, o) => sum + o.itemsCount, 0)
+  return activeServed + historicalServed
+})
+
+const avgPrepTime = computed(() => {
+  const activeKitchen = mesasStore.tables.reduce((acc, t) => acc + t.orders.filter(o => o.status === 'preparing').length, 0)
+  if (activeKitchen === 0) return '8.5'
+  return (8.5 + (activeKitchen * 0.4)).toFixed(1)
+})
 
 // Simulate random sale
 const generateMockSale = () => {

@@ -1,264 +1,546 @@
 <template>
-  <div class="bg-app-background min-h-[calc(100vh-4rem)]">
-    <div class="max-w-7xl w-full mx-auto p-6 text-app-text space-y-6">
-      <!-- Header -->
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-3xl font-extrabold tracking-tight text-app-text">Pantalla de Cocina (KDS)</h2>
-          <p class="text-sm text-app-text-muted mt-1">Cola de preparación de comidas y tapas en tiempo real</p>
+  <div class="bg-[#F8F9FA] min-h-[calc(100vh-4rem)] text-[#08071A] font-inter antialiased select-none">
+
+    <!-- MAIN KDS CONTAINER -->
+    <div class="w-full max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 flex flex-col">
+
+      <!-- 1. HEADER SUPERIOR ENTERPRISE -->
+      <div class="bg-white rounded-3xl border border-slate-100 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-sm">
+        <div class="flex items-center gap-4">
+          <!-- Volver atrás -->
+          <button
+            @click="goBack"
+            class="p-2.5 hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-slate-800 transition-all cursor-pointer flex items-center justify-center shrink-0"
+            title="Volver al Dashboard"
+          >
+            <i class="pi pi-arrow-left text-xs"></i>
+          </button>
+          <div>
+            <span class="text-[10px] font-bold text-[#9235DF] uppercase tracking-widest">Aveniq KDS Board</span>
+            <h2 class="text-2xl font-black tracking-tight font-outfit text-[#08071A] mt-0.5">
+              Panel de Cocina & Barra
+            </h2>
+            <p class="text-xs text-slate-400 font-medium">Control unificado de tiempos de preparación y entregas.</p>
+          </div>
         </div>
 
-        <!-- Quick Info -->
-        <div class="flex gap-4">
-          <div class="bg-white px-4 py-2 rounded-2xl border border-app-border text-center text-xs shadow-sm">
-            <p class="text-app-text-muted font-semibold uppercase tracking-wider text-[10px]">Pendientes</p>
-            <p class="text-lg font-black text-amber-600 mt-0.5">{{ pendingCount }}</p>
+        <!-- FILTROS DE DESTINO (Notion style pills) -->
+        <div class="flex p-1 bg-slate-50 border border-slate-100 rounded-2xl shrink-0 self-start xl:self-center">
+          <button
+            v-for="f in filterOptions"
+            :key="f.value"
+            @click="activeFilter = f.value"
+            :class="['px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap',
+              activeFilter === f.value ? 'bg-white text-[#9235DF] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800']"
+          >
+            {{ f.label }}
+          </button>
+        </div>
+
+        <!-- METRICAS / KPIS DE SERVICIO -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 xl:gap-6 shrink-0">
+          <div class="bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-2.5 text-center shadow-inner">
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Hora Actual</span>
+            <span class="text-xs font-black text-slate-800 font-mono block mt-1">{{ currentTimeString }}</span>
           </div>
-          <div class="bg-white px-4 py-2 rounded-2xl border border-app-border text-center text-xs shadow-sm">
-            <p class="text-app-text-muted font-semibold uppercase tracking-wider text-[10px]">En Marcha</p>
-            <p class="text-lg font-black text-app-primary mt-0.5">{{ preparingCount }}</p>
+
+          <div class="bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-2.5 text-center shadow-inner">
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Pedidos Activos</span>
+            <span class="text-xs font-black text-[#9235DF] block mt-1">{{ activeTicketsCount }} uds.</span>
+          </div>
+
+          <div class="bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-2.5 text-center shadow-inner">
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Tiempo Medio</span>
+            <span class="text-xs font-black text-slate-800 block mt-1">{{ avgPrepTime }} min</span>
+          </div>
+
+          <div class="bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-2.5 text-center shadow-inner">
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Retrasados</span>
+            <span class="text-xs font-black text-rose-600 block mt-1">{{ lateTicketsCount }} uds.</span>
           </div>
         </div>
       </div>
 
-      <!-- KDS Board Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-190px)] min-h-[500px]">
+      <!-- 2. KANBAN columns wrapper -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 min-h-[550px]">
 
-        <!-- COLUMN 1: PENDING -->
-        <div class="bg-slate-50 rounded-3xl border border-app-border flex flex-col h-full overflow-hidden shadow-sm">
-          <div class="p-4 border-b border-app-border bg-slate-100/50 flex justify-between items-center">
+        <!-- COLUMN 1: RECIBIDOS (PENDING) -->
+        <div class="bg-white rounded-3xl border border-slate-100 flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-slate-50 bg-slate-50/40 flex justify-between items-center shrink-0">
             <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-md shadow-amber-500/20"></span>
-              <h3 class="font-bold text-app-text text-sm uppercase tracking-wider">Pendientes</h3>
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-md shadow-blue-500/20"></span>
+              <h3 class="font-black text-slate-800 text-xs uppercase tracking-wider">Recibidos</h3>
             </div>
-            <span class="text-xs font-mono font-bold bg-slate-200 px-2 py-0.5 rounded text-app-text-muted">{{ pendingItems.length }}</span>
+            <span class="text-[10px] font-mono font-black bg-slate-100 px-2 py-0.5 rounded text-slate-400">{{ pendingItems.length }}</span>
           </div>
 
-          <!-- Tickets list -->
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div
+            @dragover.prevent
+            @drop="onCardDrop($event, 'pending')"
+            class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
+          >
             <div
               v-for="ticket in pendingItems"
               :key="ticket.item.id"
-              class="p-4 rounded-2xl bg-white border border-app-border hover:border-app-primary/20 transition-all duration-350 space-y-3 shadow-sm relative group overflow-hidden"
+              draggable="true"
+              @dragstart="onCardDragStart($event, ticket)"
+              :class="[
+                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden cursor-grab active:cursor-grabbing border-slate-200/70 hover:border-slate-350',
+                ticket.elapsedSeconds < 120 ? 'border-l-4 border-l-emerald-500' : '',
+                ticket.elapsedSeconds >= 120 && ticket.elapsedSeconds < 300 ? 'border-l-4 border-l-amber-500' : '',
+                ticket.elapsedSeconds >= 300 ? 'border-l-4 border-l-rose-500 animate-pulse' : ''
+              ]"
             >
-              <!-- Border glowing effect on hover -->
-              <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
-
-              <div class="flex justify-between items-start">
-                <div>
-                  <span class="text-[10px] font-black uppercase text-app-text-muted font-mono">COMIDA</span>
-                  <h4 class="font-black text-app-text text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+              <div class="space-y-3">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                    </span>
+                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                  </div>
+                  <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                    {{ ticket.elapsedTime }}
+                  </span>
                 </div>
-                <span class="text-xs font-mono text-app-text-muted">{{ ticket.elapsedTime }}</span>
-              </div>
 
-              <div class="text-base font-bold text-app-text">
-                {{ ticket.item.quantity }}x <span class="text-app-text font-extrabold">{{ ticket.item.name }}</span>
-              </div>
-              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words">
-                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
-                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
-              </div>
+                <div class="text-sm font-black text-slate-800">
+                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
+                </div>
 
-              <div class="pt-3 border-t border-app-border flex justify-between items-center">
-                <span class="text-[10px] text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded" v-if="ticket.isLate">
-                  <i class="pi pi-exclamation-triangle text-[9px] mr-1"></i> Retrasado
-                </span>
-                <span class="text-[10px] text-app-text-muted" v-else>Cola de entrada</span>
+                <!-- Modifiers & Custom notes -->
+                <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-1">
+                  <span
+                    v-for="mod in parseModifiers(ticket.item.notes)"
+                    :key="mod"
+                    class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                  >
+                    {{ mod }}
+                  </span>
+                </div>
 
-                <button
-                  @click="updateStatus(ticket.tableId, ticket.item.id, 'preparing')"
-                  class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <span>Preparar</span>
-                  <i class="pi pi-chevron-right text-[10px]"></i>
-                </button>
+                <div class="pt-3 border-t border-slate-50 flex justify-between items-center">
+                  <span v-if="ticket.isLate" class="text-[9px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded animate-pulse">
+                    ¡Retrasado!
+                  </span>
+                  <span v-else class="text-[9px] text-slate-400 font-bold">En cola</span>
+
+                  <button
+                    @click="updateStatus(ticket.tableId, ticket.item.id, 'preparing')"
+                    class="px-3.5 py-1.5 bg-slate-900 hover:bg-black text-white font-black text-xs rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <span>Aceptar</span>
+                    <i class="pi pi-chevron-right text-[10px]"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div v-if="pendingItems.length === 0" class="text-center py-16 text-app-text-muted text-sm">
-              No hay comandas pendientes de cocina.
+            <div v-if="pendingItems.length === 0" class="text-center py-16 text-slate-300 text-xs">
+              No hay comandas recibidas.
             </div>
           </div>
         </div>
 
-        <!-- COLUMN 2: PREPARING -->
-        <div class="bg-slate-50 rounded-3xl border border-app-border flex flex-col h-full overflow-hidden shadow-sm">
-          <div class="p-4 border-b border-app-border bg-slate-100/50 flex justify-between items-center">
+        <!-- COLUMN 2: EN PREPARACIÓN (PREPARING) -->
+        <div class="bg-white rounded-3xl border border-slate-100 flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-slate-50 bg-slate-50/40 flex justify-between items-center shrink-0">
             <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-app-primary shadow-md shadow-app-primary/20"></span>
-              <h3 class="font-bold text-app-text text-sm uppercase tracking-wider">En Cocción</h3>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-md shadow-amber-500/20"></span>
+              <h3 class="font-black text-slate-800 text-xs uppercase tracking-wider">En Preparación</h3>
             </div>
-            <span class="text-xs font-mono font-bold bg-slate-200 px-2 py-0.5 rounded text-app-text-muted">{{ preparingItems.length }}</span>
+            <span class="text-[10px] font-mono font-black bg-slate-100 px-2 py-0.5 rounded text-slate-400">{{ preparingItems.length }}</span>
           </div>
 
-          <!-- Tickets list -->
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div
+            @dragover.prevent
+            @drop="onCardDrop($event, 'preparing')"
+            class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
+          >
             <div
               v-for="ticket in preparingItems"
               :key="ticket.item.id"
-              class="p-4 rounded-2xl bg-white border border-app-border hover:border-app-primary/20 transition-all duration-350 space-y-3 shadow-sm relative group overflow-hidden"
+              draggable="true"
+              @dragstart="onCardDragStart($event, ticket)"
+              :class="[
+                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden cursor-grab active:cursor-grabbing border-slate-200/70 hover:border-slate-350',
+                ticket.elapsedSeconds < 120 ? 'border-l-4 border-l-emerald-500' : '',
+                ticket.elapsedSeconds >= 120 && ticket.elapsedSeconds < 300 ? 'border-l-4 border-l-amber-500' : '',
+                ticket.elapsedSeconds >= 300 ? 'border-l-4 border-l-rose-500 animate-pulse' : ''
+              ]"
             >
-              <div class="absolute left-0 top-0 bottom-0 w-1 bg-app-primary"></div>
-
-              <div class="flex justify-between items-start">
-                <div>
-                  <span class="text-[10px] font-black uppercase text-app-text-muted font-mono">COMIDA</span>
-                  <h4 class="font-black text-app-text text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+              <div class="space-y-3">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                    </span>
+                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                  </div>
+                  <span class="text-[10px] font-mono font-bold text-[#9235DF] bg-[#9235DF]/5 px-2 py-0.5 rounded border border-slate-100">
+                    {{ ticket.elapsedTime }}
+                  </span>
                 </div>
-                <span class="text-xs font-mono text-app-primary font-semibold">{{ ticket.elapsedTime }}</span>
-              </div>
 
-              <div class="text-base font-bold text-app-text">
-                {{ ticket.item.quantity }}x <span class="text-app-text font-extrabold">{{ ticket.item.name }}</span>
-              </div>
-              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words">
-                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
-                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
-              </div>
+                <div class="text-sm font-black text-slate-800">
+                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
+                </div>
 
-              <div class="pt-3 border-t border-app-border flex justify-between items-center">
-                <span class="text-[10px] text-app-primary font-semibold bg-app-primary-soft/45 px-2 py-0.5 rounded animate-pulse">
-                  En preparación...
-                </span>
+                <!-- Modifiers & Custom notes -->
+                <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-1">
+                  <span
+                    v-for="mod in parseModifiers(ticket.item.notes)"
+                    :key="mod"
+                    class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                  >
+                    {{ mod }}
+                  </span>
+                </div>
 
-                <button
-                  @click="updateStatus(ticket.tableId, ticket.item.id, 'ready')"
-                  class="px-3.5 py-1.5 bg-app-primary hover:bg-app-primary-hover text-white font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <span>Listo</span>
-                  <i class="pi pi-check-circle text-[10px]"></i>
-                </button>
+                <div class="pt-3 border-t border-slate-50 flex justify-between items-center">
+                  <span v-if="ticket.isLate" class="text-[9px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                    ¡Retrasado!
+                  </span>
+                  <span v-else class="text-[9px] text-[#9235DF] font-bold animate-pulse">Cocinando...</span>
+
+                  <button
+                    @click="updateStatus(ticket.tableId, ticket.item.id, 'ready')"
+                    class="px-3.5 py-1.5 bg-[#9235DF] hover:bg-[#562AAC] text-white font-black text-xs rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <span>Listo</span>
+                    <i class="pi pi-check-circle text-[10px]"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div v-if="preparingItems.length === 0" class="text-center py-16 text-app-text-muted text-sm">
-              No hay comandas en preparación actualmente.
+            <div v-if="preparingItems.length === 0" class="text-center py-16 text-slate-300 text-xs">
+              Sin pedidos en preparación.
             </div>
           </div>
         </div>
 
-        <!-- COLUMN 3: READY / SERVING -->
-        <div class="bg-slate-50 rounded-3xl border border-app-border flex flex-col h-full overflow-hidden shadow-sm">
-          <div class="p-4 border-b border-app-border bg-slate-100/50 flex justify-between items-center">
+        <!-- COLUMN 3: LISTOS (READY) -->
+        <div class="bg-white rounded-3xl border border-slate-100 flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-slate-50 bg-slate-50/40 flex justify-between items-center shrink-0">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/20"></span>
-              <h3 class="font-bold text-app-text text-sm uppercase tracking-wider">Listo para Servir</h3>
+              <h3 class="font-black text-slate-800 text-xs uppercase tracking-wider">Listos</h3>
             </div>
-            <span class="text-xs font-mono font-bold bg-slate-200 px-2 py-0.5 rounded text-app-text-muted">{{ readyItems.length }}</span>
+            <span class="text-[10px] font-mono font-black bg-slate-100 px-2 py-0.5 rounded text-slate-400">{{ readyItems.length }}</span>
           </div>
 
-          <!-- Tickets list -->
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div
+            @dragover.prevent
+            @drop="onCardDrop($event, 'ready')"
+            class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
+          >
             <div
               v-for="ticket in readyItems"
               :key="ticket.item.id"
-              class="p-4 rounded-2xl bg-white border border-app-border hover:border-app-primary/20 transition-all duration-350 space-y-3 shadow-sm relative group overflow-hidden"
+              draggable="true"
+              @dragstart="onCardDragStart($event, ticket)"
+              :class="[
+                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden cursor-grab active:cursor-grabbing border-slate-200/70 hover:border-slate-350',
+                ticket.elapsedSeconds < 120 ? 'border-l-4 border-l-emerald-500' : '',
+                ticket.elapsedSeconds >= 120 && ticket.elapsedSeconds < 300 ? 'border-l-4 border-l-amber-500' : '',
+                ticket.elapsedSeconds >= 300 ? 'border-l-4 border-l-rose-500' : ''
+              ]"
             >
-              <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
-
-              <div class="flex justify-between items-start">
-                <div>
-                  <span class="text-[10px] font-black uppercase text-app-text-muted font-mono">COMIDA</span>
-                  <h4 class="font-black text-app-text text-lg leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+              <div class="space-y-3">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                    </span>
+                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                  </div>
+                  <span class="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                    Listo
+                  </span>
                 </div>
-                <span class="text-xs font-mono text-emerald-600 font-bold">Listos</span>
-              </div>
 
-              <div class="text-base font-bold text-app-text">
-                {{ ticket.item.quantity }}x <span class="text-app-text font-extrabold">{{ ticket.item.name }}</span>
-              </div>
-              <div v-if="ticket.item.notes" class="mt-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-app-primary italic font-medium flex items-start gap-1.5 break-words">
-                <i class="pi pi-info-circle text-[10px] mt-0.5 shrink-0"></i>
-                <span class="break-words">Nota: {{ ticket.item.notes }}</span>
-              </div>
+                <div class="text-sm font-black text-slate-800">
+                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
+                </div>
 
-              <div class="pt-3 border-t border-app-border flex justify-between items-center">
-                <span class="text-[10px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                  Aviso a camarero enviado
-                </span>
+                <!-- Modifiers & Custom notes -->
+                <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-1">
+                  <span
+                    v-for="mod in parseModifiers(ticket.item.notes)"
+                    :key="mod"
+                    class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                  >
+                    {{ mod }}
+                  </span>
+                </div>
 
-                <button
-                  @click="updateStatus(ticket.tableId, ticket.item.id, 'served')"
-                  class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-app-text border border-app-border font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <span>Servido</span>
-                </button>
+                <div class="pt-3 border-t border-slate-50 flex justify-between items-center">
+                  <span class="text-[9px] text-emerald-600 font-bold">Esperando retirar</span>
+
+                  <button
+                    @click="updateStatus(ticket.tableId, ticket.item.id, 'served')"
+                    class="px-3.5 py-1.5 bg-emerald-550 hover:bg-emerald-600 text-white font-black text-xs rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <span>Entregar</span>
+                    <i class="pi pi-check text-[10px]"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div v-if="readyItems.length === 0" class="text-center py-16 text-app-text-muted text-sm">
-              Sin comandas listas para retirar de cocina.
+            <div v-if="readyItems.length === 0" class="text-center py-16 text-slate-300 text-xs">
+              Sin platos listos.
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMN 4: SERVIDOS (SERVED HISTORY) -->
+        <div class="bg-white rounded-3xl border border-slate-100 flex flex-col h-full overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-slate-50 bg-slate-50/40 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400 shadow-md"></span>
+              <h3 class="font-black text-slate-800 text-xs uppercase tracking-wider">Servidos</h3>
+            </div>
+            <span class="text-[10px] font-mono font-black bg-slate-100 px-2 py-0.5 rounded text-slate-400">{{ servedItems.length }}</span>
+          </div>
+
+          <div
+            @dragover.prevent
+            @drop="onCardDrop($event, 'served')"
+            class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
+          >
+            <div
+              v-for="ticket in servedItems"
+              :key="ticket.item.id"
+              class="p-4 rounded-2xl bg-white border border-slate-200/50 shadow-none relative overflow-hidden opacity-65 hover:opacity-90 transition-opacity"
+            >
+              <div class="space-y-3">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                    </span>
+                    <h4 class="font-black text-slate-700 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                  </div>
+                  <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
+                    Entregado
+                  </span>
+                </div>
+
+                <div class="text-sm font-bold text-slate-500 line-through">
+                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="servedItems.length === 0" class="text-center py-16 text-slate-300 text-xs">
+              Historial vacío.
             </div>
           </div>
         </div>
 
       </div>
+
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMesasStore, type OrderItemStatus } from '../stores/mesas'
 
 const mesasStore = useMesasStore()
+const router = useRouter()
 
-// State for local ticket counter timers
-const currentSeconds = ref(0)
-let timerInterval: any = null
+const activeFilter = ref<'cocina' | 'barra' | 'todos'>('cocina')
+
+const filterOptions = [
+  { label: 'Solo Cocina', value: 'cocina' as const },
+  { label: 'Solo Barra', value: 'barra' as const },
+  { label: 'Todos', value: 'todos' as const }
+]
+
+// Dynamic timers and clocks
+const currentTimeString = ref('')
+const ticketSecondsMap = ref<Record<string, number>>({})
+let timeInterval: any = null
+
+const updateClockString = () => {
+  const d = new Date()
+  const hrs = String(d.getHours()).padStart(2, '0')
+  const mins = String(d.getMinutes()).padStart(2, '0')
+  const secs = String(d.getSeconds()).padStart(2, '0')
+  currentTimeString.value = `${hrs}:${mins}:${secs}`
+}
+
+const updateTimersAndClocks = () => {
+  updateClockString()
+
+  // Update seconds map for items
+  mesasStore.tables.forEach(table => {
+    table.orders.forEach(order => {
+      if (ticketSecondsMap.value[order.id] === undefined) {
+        // Initialize base starting elapsed seconds based on status
+        if (order.status === 'pending') {
+          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 40) + 15 // 15-55s
+        } else if (order.status === 'preparing') {
+          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 80) + 120 // 120-200s
+        } else if (order.status === 'ready') {
+          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 60) + 240 // 240-300s
+        } else {
+          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 120) + 380 // 380-500s
+        }
+      } else {
+        // Only increment active preparations
+        if (order.status === 'pending' || order.status === 'preparing') {
+          ticketSecondsMap.value[order.id]++
+        }
+      }
+    })
+  })
+}
 
 onMounted(() => {
-  timerInterval = setInterval(() => {
-    currentSeconds.value++
-  }, 1000)
+  updateClockString()
+  timeInterval = setInterval(updateTimersAndClocks, 1000)
 })
 
 onUnmounted(() => {
-  if (timerInterval) clearInterval(timerInterval)
+  if (timeInterval) clearInterval(timeInterval)
 })
 
-// Helper to calculate mock elapsed times dynamically
-const getFormattedElapsedTime = (baseSecs: number) => {
-  const total = baseSecs + currentSeconds.value
-  const mins = Math.floor(total / 60)
-  const secs = total % 60
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+const goBack = () => {
+  router.push('/')
 }
 
-// Map store items with dynamic mock timestamps to simulate KDS timers
-const mappedKitchenItems = computed(() => {
-  return mesasStore.kitchenItems.map((ki, idx) => {
-    // Generate a different starting time offset for each ticket so they don't all look the same
-    const baseOffset = (idx * 45) + 30 
-    const isLate = baseOffset + currentSeconds.value > 180 // late if > 3 minutes for MVP testing
-    return {
-      ...ki,
-      elapsedTime: getFormattedElapsedTime(baseOffset),
-      isLate
+const getDestinationBadgeLabel = (category: string) => {
+  return category === 'bebidas' ? 'BARRA' : 'COCINA'
+}
+
+const parseModifiers = (notes: string): string[] => {
+  if (!notes) return []
+  return notes.split(', ').filter(Boolean)
+}
+
+// Complete items map (active + served items)
+const mappedKdsItems = computed(() => {
+  const items: Array<{
+    tableNumber: number
+    tableId: string
+    item: {
+      id: string
+      name: string
+      price: number
+      quantity: number
+      status: OrderItemStatus
+      category: string
+      notes?: string
     }
+    elapsedTime: string
+    elapsedSeconds: number
+    isLate: boolean
+  }> = []
+
+  mesasStore.tables.forEach(table => {
+    table.orders.forEach(orderItem => {
+      const isCocina = orderItem.category !== 'bebidas'
+      const matchesFilter =
+        (activeFilter.value === 'todos') ||
+        (activeFilter.value === 'cocina' && isCocina) ||
+        (activeFilter.value === 'barra' && !isCocina)
+
+      if (matchesFilter) {
+        const totalSecs = ticketSecondsMap.value[orderItem.id] || 30
+        const elapsedMin = Math.floor(totalSecs / 60)
+        const elapsedSec = totalSecs % 60
+        const timeStr = `${String(elapsedMin).padStart(2, '0')}:${String(elapsedSec).padStart(2, '0')}`
+        const isLate = totalSecs >= 300 // 5 minutes
+
+        items.push({
+          tableNumber: table.number,
+          tableId: table.id,
+          item: orderItem,
+          elapsedTime: timeStr,
+          elapsedSeconds: totalSecs,
+          isLate
+        })
+      }
+    })
   })
+
+  // Sort: late and oldest first
+  return items.sort((a, b) => b.elapsedSeconds - a.elapsedSeconds)
 })
 
-// Filtered lists for columns
+// Kanban columns filtering
 const pendingItems = computed(() => {
-  return mappedKitchenItems.value.filter(ticket => ticket.item.status === 'pending')
+  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'pending')
 })
 
 const preparingItems = computed(() => {
-  return mappedKitchenItems.value.filter(ticket => ticket.item.status === 'preparing')
+  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'preparing')
 })
 
 const readyItems = computed(() => {
-  return mappedKitchenItems.value.filter(ticket => ticket.item.status === 'ready')
+  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'ready')
 })
 
-// Counts
-const pendingCount = computed(() => pendingItems.value.length)
-const preparingCount = computed(() => preparingItems.value.length)
+const servedItems = computed(() => {
+  // Show recent history (last 10 served items)
+  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'served').slice(0, 10)
+})
 
-// State modification trigger
+// Header metrics
+const activeTicketsCount = computed(() => {
+  return pendingItems.value.length + preparingItems.value.length
+})
+
+const lateTicketsCount = computed(() => {
+  return mappedKdsItems.value.filter(ticket =>
+    ticket.isLate && (ticket.item.status === 'pending' || ticket.item.status === 'preparing')
+  ).length
+})
+
+const avgPrepTime = computed(() => {
+  const activeList = preparingItems.value
+  if (activeList.length === 0) return '9.2'
+  const sum = activeList.reduce((acc, t) => acc + t.elapsedSeconds, 0)
+  const avgMin = (sum / activeList.length) / 60
+  return avgMin.toFixed(1)
+})
+
+// Status modification trigger
 const updateStatus = (tableId: string, orderItemId: string, newStatus: OrderItemStatus) => {
   mesasStore.updateOrderItemStatus(tableId, orderItemId, newStatus)
+}
+
+// HTML5 Drag and drop event handlers
+const onCardDragStart = (event: DragEvent, ticket: any) => {
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('text/plain', JSON.stringify({
+      tableId: ticket.tableId,
+      itemId: ticket.item.id
+    }))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+const onCardDrop = (event: DragEvent, targetStatus: OrderItemStatus) => {
+  if (event.dataTransfer) {
+    const rawData = event.dataTransfer.getData('text/plain')
+    if (rawData) {
+      try {
+        const { tableId, itemId } = JSON.parse(rawData)
+        if (tableId && itemId) {
+          updateStatus(tableId, itemId, targetStatus)
+        }
+      } catch (err) {
+        console.error('Drag and drop parsing error:', err)
+      }
+    }
+  }
 }
 </script>

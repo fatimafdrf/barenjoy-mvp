@@ -94,28 +94,61 @@
                 getTableMetadata(table).shape === 'terraza' ? 'rounded-2xl w-20 h-20 border-double border-4' : '',
                 selectedTable?.id === table.id ? 'ring-2 ring-[#9235DF] scale-105 z-20 shadow-xl' : '',
                 blockedTableIds.includes(table.id) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-70 shadow-none' : '',
-                !blockedTableIds.includes(table.id) && table.status === 'free' ? 'bg-white border-slate-200 text-slate-700 hover:border-[#9235DF]/20' : '',
-                !blockedTableIds.includes(table.id) && table.status === 'occupied' ? 'bg-white border-teal-500 text-teal-700 hover:border-teal-600' : '',
-                !blockedTableIds.includes(table.id) && table.status === 'reserved' ? 'bg-white border-indigo-500 text-indigo-700 hover:border-indigo-600' : '',
-                !blockedTableIds.includes(table.id) && table.status === 'bill' ? 'bg-white border-amber-500 text-amber-700 hover:border-amber-600' : ''
+                !blockedTableIds.includes(table.id) && table.orders.length === 0 && table.status === 'free' ? 'bg-white border-slate-200 text-slate-700 hover:border-[#9235DF]/20' : '',
+                !blockedTableIds.includes(table.id) && table.orders.length === 0 && table.status === 'reserved' ? 'bg-white border-indigo-500 text-indigo-700 hover:border-indigo-600' : '',
+                !blockedTableIds.includes(table.id) && table.orders.length > 0 ? getTableServiceStatus(table).colorClass : ''
               ]"
             >
               <div class="relative w-full h-full flex flex-col items-center justify-center p-2">
-                <span v-if="table.status === 'occupied'" class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
-                <span v-else-if="table.status === 'reserved'" class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                <span v-else-if="table.status === 'bill'" class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                <!-- Top-right corner dot -->
+                <span
+                  v-if="!blockedTableIds.includes(table.id) && table.orders.length > 0"
+                  class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
+                  :class="getTableServiceStatus(table).dotClass"
+                ></span>
+                <span v-else-if="!blockedTableIds.includes(table.id) && table.status === 'reserved'" class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                 <i v-else-if="blockedTableIds.includes(table.id)" class="pi pi-lock text-[8px] text-slate-400 absolute top-2 right-2"></i>
 
-                <span v-if="table.status !== 'free' && !blockedTableIds.includes(table.id)" class="absolute top-1.5 left-2 text-[8px] font-black text-slate-400 uppercase">
+                <!-- Waitstaff Initial -->
+                <span v-if="(table.status !== 'free' || table.orders.length > 0) && !blockedTableIds.includes(table.id)" class="absolute top-1.5 left-2 text-[8px] font-black text-slate-400 uppercase">
                   {{ getTableMetadata(table).waiter[0] }}
                 </span>
 
+                <!-- Table label -->
                 <span class="text-xs font-black text-slate-900 leading-none">M-{{ table.number }}</span>
+                <!-- Table capacity metadata -->
                 <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                   {{ table.capacity }} pax
                 </span>
 
-                <div v-if="table.status !== 'free' && !blockedTableIds.includes(table.id)" class="flex items-center gap-1 mt-1 text-[8px] font-black text-[#9235DF]">
+                <!-- Discrete Live KDS/BDS indicators -->
+                <div v-if="table.orders.length > 0 && !blockedTableIds.includes(table.id)" class="flex gap-1.5 mt-1 select-none">
+                  <span
+                    v-if="getTableServiceStatus(table).showKitchenIcon"
+                    class="text-[9px]"
+                    :class="getTableServiceStatus(table).kitchenIconColor === 'text-slate-400' ? 'opacity-40' : ''"
+                    title="Cocina"
+                  >
+                    🍽
+                  </span>
+                  <span
+                    v-if="getTableServiceStatus(table).showBarIcon"
+                    class="text-[9px]"
+                    :class="getTableServiceStatus(table).barIconColor === 'text-slate-400' ? 'opacity-40' : ''"
+                    title="Barra"
+                  >
+                  </span>
+                  <span
+                    v-if="getTableServiceStatus(table).showServedIcon"
+                    class="text-[9px]"
+                    title="Servido"
+                  >
+                    ✅
+                  </span>
+                </div>
+
+                <!-- Pricing & elapsed time metadata -->
+                <div v-if="(table.status !== 'free' || table.orders.length > 0) && !blockedTableIds.includes(table.id)" class="flex items-center gap-1 mt-1 text-[8px] font-black text-[#9235DF]">
                   <span>{{ getTableTotal(table).toFixed(0) }}€</span>
                   <span class="text-slate-300">•</span>
                   <span class="text-slate-400 font-mono">{{ getTableMetadata(table).elapsedTime }}</span>
@@ -1327,6 +1360,91 @@ const confirmSendComanda = () => {
       selectedTable.value = updated
       activeOrderingTable.value = updated
     }
+  }
+}
+
+const getTableServiceStatus = (table: Table) => {
+  const orders = table.orders
+  if (orders.length === 0) {
+    return {
+      text: 'Disponible',
+      colorClass: 'bg-white border-slate-200 text-slate-700 hover:border-[#9235DF]/20',
+      dotClass: '',
+      showKitchenIcon: false,
+      showBarIcon: false,
+      showServedIcon: false,
+      kitchenIconColor: 'text-slate-400',
+      barIconColor: 'text-slate-400'
+    }
+  }
+
+  const kitchenOrders = orders.filter(o => o.category !== 'bebidas')
+  const barOrders = orders.filter(o => o.category === 'bebidas')
+
+  const kPending = kitchenOrders.some(o => o.status === 'pending' || o.status === 'preparing')
+  const kReady = kitchenOrders.some(o => o.status === 'ready')
+  const kServed = kitchenOrders.length > 0 && kitchenOrders.every(o => o.status === 'served')
+
+  const bPending = barOrders.some(o => o.status === 'pending' || o.status === 'preparing')
+  const bReady = barOrders.some(o => o.status === 'ready')
+  const bServed = barOrders.length > 0 && barOrders.every(o => o.status === 'served')
+
+  // Determine the overall status and color of the table
+  let text = 'Servicio en curso'
+  let colorClass = 'bg-white border-teal-500 text-teal-700 hover:border-teal-600'
+  let dotClass = 'bg-teal-500 animate-pulse'
+
+  if (kPending && bPending) {
+    text = 'Cocina + Barra pendientes'
+    colorClass = 'bg-white border-purple-500 text-purple-700 hover:border-purple-600'
+    dotClass = 'bg-purple-500 animate-pulse'
+  } else if (kPending) {
+    text = 'Cocina pendiente'
+    colorClass = 'bg-white border-amber-500 text-amber-700 hover:border-amber-600'
+    dotClass = 'bg-amber-500 animate-pulse'
+  } else if (bPending) {
+    text = 'Barra pendiente'
+    colorClass = 'bg-white border-blue-500 text-blue-700 hover:border-blue-600'
+    dotClass = 'bg-blue-500 animate-pulse'
+  } else if (kReady && bReady) {
+    text = 'Lista para servir'
+    colorClass = 'bg-white border-emerald-500 text-emerald-700 hover:border-emerald-600 animate-bounce'
+    dotClass = 'bg-emerald-500 animate-bounce'
+  } else if (kReady) {
+    text = 'Cocina lista'
+    colorClass = 'bg-white border-emerald-450 text-emerald-700 hover:border-emerald-500'
+    dotClass = 'bg-emerald-400 animate-pulse'
+  } else if (bReady) {
+    text = 'Bebidas listas'
+    colorClass = 'bg-white border-emerald-450 text-emerald-700 hover:border-emerald-500'
+    dotClass = 'bg-emerald-400 animate-pulse'
+  } else if (kServed || bServed || orders.every(o => o.status === 'served')) {
+    text = 'Servicio en curso'
+    colorClass = 'bg-white border-teal-500 text-teal-700 hover:border-teal-600'
+    dotClass = 'bg-teal-50'
+  }
+
+  // Visual status indicators on the table card itself (Flujo 6 & Sala requirements)
+  const showKitchenIcon = kitchenOrders.length > 0
+  const showBarIcon = barOrders.length > 0
+  const showServedIcon = orders.every(o => o.status === 'served')
+
+  // Colors for icons:
+  // - Pending/Preparing: amber or blue
+  // - Ready: emerald
+  // - Served: slate (dimmed)
+  const kitchenIconColor = kReady ? 'text-emerald-500' : kPending ? 'text-amber-500' : 'text-slate-400'
+  const barIconColor = bReady ? 'text-emerald-500' : bPending ? 'text-blue-500' : 'text-slate-400'
+
+  return {
+    text,
+    colorClass,
+    dotClass,
+    showKitchenIcon,
+    showBarIcon,
+    showServedIcon,
+    kitchenIconColor,
+    barIconColor
   }
 }
 
