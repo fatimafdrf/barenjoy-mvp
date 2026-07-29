@@ -151,7 +151,8 @@ import {
   ChefHat,
   GlassWater,
   Grid2X2,
-  Utensils
+  Utensils,
+  Calendar
 } from '@lucide/vue'
 
 const authStore = useAuthStore()
@@ -163,6 +164,7 @@ const mobileOpen = ref(false)
 
 const navItems = computed(() => [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
+  { name: 'Reservas', to: '/reservas', icon: Calendar },
   { name: 'Caja Registradora', to: '/locales', icon: CreditCard },
   { name: 'Mapa de Mesas', to: '/mesas', icon: Grid2X2 },
   { name: 'Carta / Menú', to: '/carta', icon: Utensils },

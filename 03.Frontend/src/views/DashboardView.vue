@@ -277,6 +277,42 @@
             </div>
           </div>
 
+          <!-- 4. KPI RESERVAS DE HOY -->
+          <div class="space-y-4">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Previsión de Reservas (Hoy)</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <!-- Reservas Hoy -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Reservas Hoy</span>
+                <span class="text-xl font-black text-slate-800 block">{{ totalReservasCount }}</span>
+              </div>
+
+              <!-- Clientes Previstos -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Clientes Previstos</span>
+                <span class="text-xl font-black text-slate-800 block">{{ expectedClients }} pax</span>
+              </div>
+
+              <!-- Mesas Reservadas -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Mesas Reservadas</span>
+                <span class="text-xl font-black text-indigo-600 block">{{ reservedTablesCount }}</span>
+              </div>
+
+              <!-- No Show -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">No Show</span>
+                <span class="text-xl font-black text-rose-600 block">{{ noShowCount }}</span>
+              </div>
+
+              <!-- Ocupación Prevista -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ocupación Prevista</span>
+                <span class="text-xl font-black text-emerald-600 block">{{ expectedOccupation }}%</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- RIGHT COLUMN: HEALTH CENTER & STRIPE TRANSACTIONS FEED -->
@@ -534,9 +570,11 @@
 import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useMesasStore } from '../stores/mesas'
+import { useReservasStore } from '../stores/reservas'
 
 const authStore = useAuthStore()
 const mesasStore = useMesasStore()
+const reservasStore = useReservasStore()
 
 // Centralized mock data clearly marked as demonstration values
 const demoData = {
@@ -667,6 +705,32 @@ const avgPrepTime = computed(() => {
   const activeKitchen = mesasStore.tables.reduce((acc, t) => acc + t.orders.filter(o => o.status === 'preparing').length, 0)
   if (activeKitchen === 0) return '8.5'
   return (8.5 + (activeKitchen * 0.4)).toFixed(1)
+})
+
+const reservationsToday = computed(() => {
+  const todayStr = new Date().toISOString().split('T')[0]
+  return reservasStore.reservations.filter(r => r.date === todayStr)
+})
+
+const totalReservasCount = computed(() => reservationsToday.value.length)
+
+const expectedClients = computed(() => {
+  return reservationsToday.value.filter(r => r.status !== 'cancelled').reduce((sum, r) => sum + r.pax, 0)
+})
+
+const reservedTablesCount = computed(() => {
+  return new Set(reservationsToday.value.filter(r => r.status === 'confirmed' || r.status === 'seated').map(r => r.tableId).filter(Boolean)).size
+})
+
+const noShowCount = computed(() => {
+  return reservationsToday.value.filter(r => r.status === 'noshow').length
+})
+
+const expectedOccupation = computed(() => {
+  const totalCapacity = mesasStore.tables.reduce((sum, t) => sum + t.capacity, 0)
+  if (totalCapacity === 0) return 0
+  const bookedCapacity = reservationsToday.value.filter(r => r.status !== 'cancelled').reduce((sum, r) => sum + r.pax, 0)
+  return Math.min(100, Math.round((bookedCapacity / totalCapacity) * 100))
 })
 
 // Simulate random sale

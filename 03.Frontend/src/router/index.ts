@@ -13,6 +13,7 @@ import MesasView from '../views/MesasView.vue'
 import CartaView from '../views/CartaView.vue'
 import CocinaView from '../views/CocinaView.vue'
 import BarraView from '../views/BarraView.vue'
+import ReservasView from '../views/ReservasView.vue'
 
 const routes = [
   {
@@ -49,6 +50,12 @@ const routes = [
         name: 'mesas',
         component: MesasView,
         meta: { title: 'Mapa de Mesas - Aveniq' }
+      },
+      {
+        path: 'reservas',
+        name: 'reservas',
+        component: ReservasView,
+        meta: { title: 'Gestión de Reservas - Aveniq' }
       },
       {
         path: 'carta',
