@@ -17,6 +17,7 @@ import ReservasView from '../views/ReservasView.vue'
 import CrmView from '../views/CrmView.vue'
 import InventarioView from '../views/InventarioView.vue'
 import EscandallosView from '../views/EscandallosView.vue'
+import BiView from '../views/BiView.vue'
 
 const routes = [
   {
@@ -77,6 +78,12 @@ const routes = [
         name: 'escandallos',
         component: EscandallosView,
         meta: { title: 'Escandallos y Costes Gastronómicos - Aveniq' }
+      },
+      {
+        path: 'bi',
+        name: 'bi',
+        component: BiView,
+        meta: { title: 'Business Intelligence Ejecutivo - Aveniq' }
       },
       {
         path: 'carta',
