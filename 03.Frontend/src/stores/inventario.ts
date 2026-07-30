@@ -200,6 +200,16 @@ export const useInventarioStore = defineStore('inventario', () => {
     }
   }
 
+  // Update minimum stock threshold
+  const updateMinStock = (productId: string, newMinStock: number): boolean => {
+    const item = products.value.find(p => p.id === productId)
+    if (item && newMinStock >= 0) {
+      item.minStock = newMinStock
+      return true
+    }
+    return false
+  }
+
   return {
     products,
     movements,
@@ -208,6 +218,7 @@ export const useInventarioStore = defineStore('inventario', () => {
     discountStock,
     discountRawStock,
     adjustStock,
-    restockProduct
+    restockProduct,
+    updateMinStock
   }
 })

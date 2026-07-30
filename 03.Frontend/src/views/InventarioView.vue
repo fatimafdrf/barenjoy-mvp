@@ -155,13 +155,21 @@
                   </div>
                   
                   <div class="flex items-center gap-1.5">
-                    <button 
+                    <button
+                      v-if="authStore.user?.role === 'admin'"
+                      @click="openMinStockModal(product)"
+                      class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-750 text-[10px] font-bold rounded-lg cursor-pointer border border-amber-100 transition-colors"
+                      title="Configurar mínimo"
+                    >
+                      Mínimo
+                    </button>
+                    <button
                       @click="openAdjustmentModal(product)"
                       class="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 hover:text-slate-800 text-slate-500 text-[10px] font-bold rounded-lg cursor-pointer border border-slate-100 transition-colors"
                     >
                       Ajustar
                     </button>
-                    <button 
+                    <button
                       @click="openRestockModal(product)"
                       class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-lg cursor-pointer border border-indigo-100 transition-colors"
                     >
@@ -473,14 +481,80 @@
       </div>
     </div>
 
+    <!-- DIALOG MODAL: CONFIG MIN STOCK -->
+    <div
+      v-if="showMinStockModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md px-4"
+    >
+      <div class="bg-white max-w-sm w-full p-8 rounded-3xl border border-slate-200 space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <button
+          type="button"
+          @click="showMinStockModal = false"
+          class="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+        >
+          <i class="pi pi-times"></i>
+        </button>
+
+        <div>
+          <h3 class="text-xl font-bold text-[#08071A] font-outfit">Configurar Mínimo</h3>
+          <p class="text-xs text-slate-400 mt-1">Defina el umbral de stock mínimo para alertas de reposición.</p>
+        </div>
+
+        <form @submit.prevent="submitMinStock" class="space-y-4 text-xs">
+          <div class="space-y-1">
+            <label class="font-bold text-slate-400 uppercase tracking-wider block">Producto</label>
+            <input :value="activeProduct?.name" disabled class="w-full bg-slate-100 border border-slate-250 rounded-xl p-3 text-slate-500 font-bold cursor-not-allowed" />
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <span class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Stock Actual</span>
+              <span class="font-black text-[#08071A]">{{ activeProduct?.stock }} {{ activeProduct?.unit }}</span>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold text-slate-400 uppercase tracking-wider block">Nuevo Mínimo ({{ activeProduct?.unit }})</label>
+            <input
+              v-model.number="minStockForm.newMinStock"
+              required
+              type="number"
+              :step="isDecimalAllowed ? 'any' : '1'"
+              min="0"
+              class="w-full bg-slate-50 border border-slate-250 rounded-xl p-3 font-black text-slate-900 focus:outline-none"
+            />
+            <p v-if="validationError" class="text-rose-600 text-[10px] font-bold mt-1.5">{{ validationError }}</p>
+          </div>
+
+          <div class="pt-4 flex gap-3">
+            <button
+              type="button"
+              @click="showMinStockModal = false"
+              class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold rounded-xl transition-all cursor-pointer text-center"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="flex-1 py-3 bg-[#9235DF] hover:bg-[#562AAC] text-white font-bold rounded-xl transition-all cursor-pointer text-center"
+            >
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useInventarioStore, type InventoryProduct, type InventoryProvider } from '../stores/inventario'
+import { useAuthStore } from '../stores/auth'
 
 const inventarioStore = useInventarioStore()
+const authStore = useAuthStore()
 
 // State
 const activeTab = ref<'productos' | 'movimientos' | 'proveedores' | 'alertas'>('productos')
@@ -492,6 +566,7 @@ const activeSort = ref<'name' | 'stockAsc' | 'stockDesc' | 'cost'>('name')
 const activeProduct = ref<InventoryProduct | null>(null)
 const showAdjustModal = ref(false)
 const showRestockModal = ref(false)
+const showMinStockModal = ref(false)
 
 const adjustForm = ref({
   newStock: 0,
@@ -501,6 +576,17 @@ const adjustForm = ref({
 const restockForm = ref({
   qty: 0,
   reason: ''
+})
+
+const minStockForm = ref({
+  newMinStock: 0
+})
+
+const validationError = ref('')
+
+const isDecimalAllowed = computed(() => {
+  const unit = activeProduct.value?.unit
+  return unit === 'kg' || unit === 'litros'
 })
 
 const tabs = [
@@ -548,7 +634,7 @@ const filteredProducts = computed(() => {
     if (activeCategory.value !== 'all' && p.category !== activeCategory.value) return false
 
     // 3. Stock Status alert filter
-    if (activeStockStatus.value === 'low' && p.stock >= p.minStock) return false
+    if (activeStockStatus.value === 'low' && p.stock > p.minStock) return false
     if (activeStockStatus.value === 'empty' && p.stock > 0) return false
 
     return true
@@ -575,25 +661,25 @@ const sortedProducts = computed(() => {
 
 // Alert products list
 const alertProducts = computed(() => {
-  return inventarioStore.products.filter(p => p.stock < p.minStock)
+  return inventarioStore.products.filter(p => p.stock <= p.minStock)
 })
 
 // Styling classes mapping
 const getStockColorClass = (p: InventoryProduct): string => {
   if (p.stock === 0) return 'text-rose-600'
-  if (p.stock < p.minStock) return 'text-amber-500'
+  if (p.stock <= p.minStock) return 'text-amber-500'
   return 'text-emerald-600'
 }
 
 const getStockBarClass = (p: InventoryProduct): string => {
   if (p.stock === 0) return 'bg-rose-500'
-  if (p.stock < p.minStock) return 'bg-amber-400'
+  if (p.stock <= p.minStock) return 'bg-amber-400'
   return 'bg-gradient-to-r from-emerald-400 to-teal-500'
 }
 
 const getStockDotClass = (p: InventoryProduct): string => {
   if (p.stock === 0) return 'bg-rose-500 animate-pulse'
-  if (p.stock < p.minStock) return 'bg-amber-400'
+  if (p.stock <= p.minStock) return 'bg-amber-400'
   return 'bg-emerald-500'
 }
 
@@ -634,6 +720,37 @@ const submitRestock = () => {
   if (activeProduct.value) {
     inventarioStore.restockProduct(activeProduct.value.id, restockForm.value.qty, restockForm.value.reason)
     showRestockModal.value = false
+  }
+}
+
+const openMinStockModal = (p: InventoryProduct) => {
+  activeProduct.value = p
+  minStockForm.value = {
+    newMinStock: p.minStock
+  }
+  validationError.value = ''
+  showMinStockModal.value = true
+}
+
+const submitMinStock = () => {
+  if (activeProduct.value) {
+    const val = minStockForm.value.newMinStock
+    if (val < 0) {
+      validationError.value = 'El stock mínimo no puede ser negativo.'
+      return
+    }
+    const unit = activeProduct.value.unit
+    if (unit === 'uds' || unit === 'botellas') {
+      if (!Number.isInteger(val)) {
+        validationError.value = `Para la unidad "${unit}", el stock mínimo debe ser un número entero.`
+        return
+      }
+    }
+    const success = inventarioStore.updateMinStock(activeProduct.value.id, val)
+    if (success) {
+      showMinStockModal.value = false
+      validationError.value = ''
+    }
   }
 }
 
