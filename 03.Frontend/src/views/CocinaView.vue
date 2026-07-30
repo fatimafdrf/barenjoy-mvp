@@ -24,17 +24,31 @@
           </div>
         </div>
 
-        <!-- FILTROS DE DESTINO (Notion style pills) -->
-        <div class="flex p-1 bg-slate-50 border border-slate-100 rounded-2xl shrink-0 self-start xl:self-center">
-          <button
-            v-for="f in filterOptions"
-            :key="f.value"
-            @click="activeFilter = f.value"
-            :class="['px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap',
-              activeFilter === f.value ? 'bg-white text-[#9235DF] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800']"
-          >
-            {{ f.label }}
-          </button>
+        <!-- FILTROS DE DESTINO (Notion style pills) y ORDENACIÓN -->
+        <div class="flex flex-wrap items-center gap-4 shrink-0 self-start xl:self-center">
+          <div class="flex p-1 bg-slate-50 border border-slate-100 rounded-2xl">
+            <button
+              v-for="f in filterOptions"
+              :key="f.value"
+              @click="activeFilter = f.value"
+              :class="['px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap',
+                activeFilter === f.value ? 'bg-white text-[#9235DF] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800']"
+            >
+              {{ f.label }}
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-1.5 pl-3">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ordenar por:</span>
+            <select
+              v-model="sortMode"
+              class="bg-white border border-slate-200 text-xs font-bold text-slate-700 rounded-lg p-1.5 focus:outline-none focus:border-[#9235DF] cursor-pointer"
+            >
+              <option value="oldest">Llegada</option>
+              <option value="table">Mesa</option>
+              <option value="newest">Más recientes</option>
+            </select>
+          </div>
         </div>
 
         <!-- METRICAS / KPIS DE SERVICIO -->
@@ -348,7 +362,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMesasStore, type OrderItemStatus } from '../stores/mesas'
 
@@ -356,6 +370,15 @@ const mesasStore = useMesasStore()
 const router = useRouter()
 
 const activeFilter = ref<'cocina' | 'barra' | 'todos'>('cocina')
+
+const sortMode = ref<'oldest' | 'table' | 'newest'>('oldest')
+const savedSort = localStorage.getItem('aveniq_kds_sort')
+if (savedSort === 'oldest' || savedSort === 'table' || savedSort === 'newest') {
+  sortMode.value = savedSort
+}
+watch(sortMode, (newVal) => {
+  localStorage.setItem('aveniq_kds_sort', newVal)
+})
 
 const filterOptions = [
   { label: 'Solo Cocina', value: 'cocina' as const },
@@ -365,7 +388,7 @@ const filterOptions = [
 
 // Dynamic timers and clocks
 const currentTimeString = ref('')
-const ticketSecondsMap = ref<Record<string, number>>({})
+const nowRef = ref(Date.now())
 let timeInterval: any = null
 
 const updateClockString = () => {
@@ -378,29 +401,7 @@ const updateClockString = () => {
 
 const updateTimersAndClocks = () => {
   updateClockString()
-
-  // Update seconds map for items
-  mesasStore.tables.forEach(table => {
-    table.orders.forEach(order => {
-      if (ticketSecondsMap.value[order.id] === undefined) {
-        // Initialize base starting elapsed seconds based on status
-        if (order.status === 'pending') {
-          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 40) + 15 // 15-55s
-        } else if (order.status === 'preparing') {
-          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 80) + 120 // 120-200s
-        } else if (order.status === 'ready') {
-          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 60) + 240 // 240-300s
-        } else {
-          ticketSecondsMap.value[order.id] = Math.floor(Math.random() * 120) + 380 // 380-500s
-        }
-      } else {
-        // Only increment active preparations
-        if (order.status === 'pending' || order.status === 'preparing') {
-          ticketSecondsMap.value[order.id]++
-        }
-      }
-    })
-  })
+  nowRef.value = Date.now()
 }
 
 onMounted(() => {
@@ -440,6 +441,7 @@ const mappedKdsItems = computed(() => {
       category: string
       notes?: string
       productionStation?: 'BAR' | 'KITCHEN'
+      createdAt?: number
     }
     elapsedTime: string
     elapsedSeconds: number
@@ -456,11 +458,16 @@ const mappedKdsItems = computed(() => {
         (activeFilter.value === 'barra' && !isCocina)
 
       if (matchesFilter) {
-        const totalSecs = ticketSecondsMap.value[orderItem.id] || 30
+        const hasDate = typeof orderItem.createdAt === 'number'
+        const totalSecs = hasDate
+          ? Math.max(0, Math.floor((nowRef.value - (orderItem.createdAt as number)) / 1000))
+          : 0
         const elapsedMin = Math.floor(totalSecs / 60)
         const elapsedSec = totalSecs % 60
-        const timeStr = `${String(elapsedMin).padStart(2, '0')}:${String(elapsedSec).padStart(2, '0')}`
-        const isLate = totalSecs >= 300 // 5 minutes
+        const timeStr = hasDate
+          ? `${String(elapsedMin).padStart(2, '0')}:${String(elapsedSec).padStart(2, '0')}`
+          : 'Sin hora'
+        const isLate = hasDate && totalSecs >= 300 // 5 minutes
 
         items.push({
           tableNumber: table.number,
@@ -474,8 +481,34 @@ const mappedKdsItems = computed(() => {
     })
   })
 
-  // Sort: late and oldest first
-  return items.sort((a, b) => b.elapsedSeconds - a.elapsedSeconds)
+  // Sort based on sortMode
+  const getCreatedAt = (item: any) => item.createdAt ?? 0
+
+  return items.sort((a, b) => {
+    if (sortMode.value === 'oldest') {
+      const ca = getCreatedAt(a.item)
+      const cb = getCreatedAt(b.item)
+      if (ca !== cb) return ca - cb
+      if (a.tableNumber !== b.tableNumber) return a.tableNumber - b.tableNumber
+      return a.item.id.localeCompare(b.item.id)
+    } else if (sortMode.value === 'table') {
+      if (a.tableNumber !== b.tableNumber) return a.tableNumber - b.tableNumber
+      const ca = getCreatedAt(a.item)
+      const cb = getCreatedAt(b.item)
+      if (ca !== cb) return ca - cb
+      return a.item.id.localeCompare(b.item.id)
+    } else {
+      const ca = getCreatedAt(a.item)
+      const cb = getCreatedAt(b.item)
+      if (ca !== cb) {
+        if (ca === 0) return 1
+        if (cb === 0) return -1
+        return cb - ca
+      }
+      if (a.tableNumber !== b.tableNumber) return a.tableNumber - b.tableNumber
+      return a.item.id.localeCompare(b.item.id)
+    }
+  })
 })
 
 // Kanban columns filtering

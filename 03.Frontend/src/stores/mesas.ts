@@ -18,6 +18,7 @@ export interface OrderItem {
   category: 'tapas' | 'platos' | 'bebidas' | 'postres'
   notes?: string
   productionStation?: 'BAR' | 'KITCHEN'
+  createdAt?: number
 }
 
 export interface Table {
@@ -236,7 +237,8 @@ export const useMesasStore = defineStore('mesas', () => {
             status: 'pending',
             category: item.category,
             notes: normalizedNote || undefined,
-            productionStation: station
+            productionStation: station,
+            createdAt: Date.now()
           })
         }
       })
