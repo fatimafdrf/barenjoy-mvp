@@ -125,8 +125,9 @@
 
                   <!-- Weekday Cells -->
                   <td v-for="day in daysOfWeek" :key="day" class="py-3 px-3 text-center align-middle">
-                    <div v-for="shift in [getShiftForEmployeeAndDay(emp.id, day)]" :key="shift?.id || 'empty'">
-                      <div v-if="shift" class="relative group">
+                    <div class="flex flex-col gap-2">
+                      <!-- Render all assigned shifts -->
+                      <div v-for="shift in getShiftsForEmployeeAndDay(emp.id, day)" :key="shift.id" class="relative group">
                         <!-- Shift Card -->
                         <div :class="['p-2.5 rounded-2xl border text-[10px] shadow-sm flex flex-col items-center justify-center gap-1 min-h-[56px]',
                           shift.status === 'draft'
@@ -143,10 +144,10 @@
                         </div>
                       </div>
 
-                      <!-- Quick assign button if no shift exists -->
-                      <button v-else
+                      <!-- Quick assign button is always visible to add more shifts -->
+                      <button
                         @click="openQuickShiftAssignForEmployee(emp.id, day)"
-                        class="w-full py-2 bg-slate-50/50 hover:bg-slate-100/80 text-slate-450 border border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer text-center min-h-[56px] flex items-center justify-center transition-all"
+                        class="w-full py-1.5 bg-slate-50/50 hover:bg-slate-100/80 text-slate-450 border border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer text-center flex items-center justify-center transition-all min-h-[32px]"
                       >
                         + Turno
                       </button>
@@ -533,8 +534,10 @@ const getProductivityRatio = (emp: any): string => {
   return (sales / cost).toFixed(1)
 }
 
-const getShiftForEmployeeAndDay = (employeeId: string, day: string) => {
-  return personalStore.shifts.find(s => s.employeeId === employeeId && s.day === day)
+const getShiftsForEmployeeAndDay = (employeeId: string, day: string) => {
+  return personalStore.shifts
+    .filter(s => s.employeeId === employeeId && s.day === day)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
 }
 
 const openQuickShiftAssignForEmployee = (employeeId: string, day: typeof activeDay.value) => {

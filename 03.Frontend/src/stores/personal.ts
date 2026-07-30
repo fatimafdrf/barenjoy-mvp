@@ -303,14 +303,40 @@ export const usePersonalStore = defineStore('personal', () => {
         return
       }
 
-      shifts.value = shifts.value.filter(s => !(s.employeeId === employeeId && s.day === day))
+      let startTime = '09:00'
+      let endTimeVal = '17:00'
+      if (type === 'cena') {
+        startTime = '17:00'
+        endTimeVal = '01:00'
+      } else if (type === 'tarde') {
+        startTime = '14:00'
+        endTimeVal = '22:00'
+      } else if (type === 'mañana') {
+        startTime = '06:00'
+        endTimeVal = '14:00'
+      } else if (type === 'noche') {
+        startTime = '22:00'
+        endTimeVal = '06:00'
+      }
+
+      const hasDuplicate = shifts.value.some(s =>
+        s.employeeId === employeeId &&
+        s.day === day &&
+        s.startTime === startTime &&
+        s.endTime === endTimeVal
+      )
+      if (hasDuplicate) {
+        console.warn(`Intento de asignación de turno duplicado (legacy): ${employeeId} el ${day} de ${startTime} a ${endTimeVal}`)
+        return
+      }
+
       shifts.value.push({
         id: 'sh-' + Math.random().toString(36).substr(2, 9),
         employeeId,
         locationId,
         date: getWeekdayDate(day),
-        startTime: '09:00',
-        endTime: '17:00',
+        startTime,
+        endTime: endTimeVal,
         status: 'published',
         day,
         shiftType: type
@@ -324,7 +350,17 @@ export const usePersonalStore = defineStore('personal', () => {
         return
       }
 
-      shifts.value = shifts.value.filter(s => !(s.employeeId === employeeId && s.date === dateOrDay))
+      const hasDuplicate = shifts.value.some(s =>
+        s.employeeId === employeeId &&
+        s.date === dateOrDay &&
+        s.startTime === startTimeOrType &&
+        s.endTime === endTime
+      )
+      if (hasDuplicate) {
+        console.warn(`Intento de asignación de turno duplicado (fechado): ${employeeId} el ${dateOrDay} de ${startTimeOrType} a ${endTime}`)
+        return
+      }
+
       shifts.value.push({
         id: 'sh-' + Math.random().toString(36).substr(2, 9),
         employeeId,
