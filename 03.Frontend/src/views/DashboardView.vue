@@ -190,6 +190,118 @@
             </div>
           </div>
 
+          <!-- PANEL OPERATIVO DEL ENCARGADO -->
+          <div class="space-y-4">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Panel Operativo del Encargado</h4>
+            <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+
+              <!-- Tarjetas KPI -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div
+                  v-for="card in opKpiCards"
+                  :key="card.key"
+                  class="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between h-28"
+                >
+                  <div class="flex items-center justify-between text-slate-400">
+                    <span class="text-[10px] font-bold uppercase tracking-wider">{{ card.label }}</span>
+                    <i :class="['pi text-sm', card.icon]"></i>
+                  </div>
+                  <div>
+                    <h5 :class="['text-2xl font-black', card.valueClass]">{{ card.value }}</h5>
+                    <p class="text-[9px] text-slate-400 font-medium">{{ card.helper }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Carga Activa por Estación -->
+              <div class="space-y-3">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-500">
+                  <span>Cocina — {{ opDashboardMetrics.kitchenActiveLinesCount }} líneas activas</span>
+                  <span>Barra — {{ opDashboardMetrics.barActiveLinesCount }} líneas activas</span>
+                </div>
+
+                <div class="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                  <template v-if="opDashboardMetrics.kitchenActiveLinesCount + opDashboardMetrics.barActiveLinesCount > 0">
+                    <div
+                      :style="{ width: (opDashboardMetrics.kitchenActiveLinesCount / (opDashboardMetrics.kitchenActiveLinesCount + opDashboardMetrics.barActiveLinesCount) * 100) + '%' }"
+                      class="h-full bg-[#9235DF]"
+                      title="Distribución Cocina"
+                    ></div>
+                    <div
+                      :style="{ width: (opDashboardMetrics.barActiveLinesCount / (opDashboardMetrics.kitchenActiveLinesCount + opDashboardMetrics.barActiveLinesCount) * 100) + '%' }"
+                      class="h-full bg-sky-500"
+                      title="Distribución Barra"
+                    ></div>
+                  </template>
+                  <div v-else class="h-full w-full bg-slate-200" title="Sin carga"></div>
+                </div>
+              </div>
+
+              <!-- Mesas con Mayor Espera -->
+              <div class="space-y-4 pt-4 border-t border-slate-100">
+                <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Prioridad de Atención (Mayor Espera)</h5>
+
+                <div class="space-y-3">
+                  <div
+                    v-for="item in opDashboardMetrics.longestWaitingTables"
+                    :key="item.tableId"
+                    class="flex items-center justify-between p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100 text-xs"
+                  >
+                    <div class="space-y-1">
+                      <p class="font-bold text-[#08071A]">Mesa {{ item.tableNumber }}</p>
+                      <p class="text-[10px] text-slate-400">
+                        Estaciones: <span class="font-semibold text-slate-600">{{ item.stations }}</span>
+                      </p>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                      <span
+                        v-if="item.alertLevel !== 'none' && item.stations.includes(' y ')"
+                        class="text-[9px] font-black uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
+                      >
+                        Origen: {{ item.criticalStation }}
+                      </span>
+
+                      <span
+                        v-if="item.timeState === 'invalid'"
+                        class="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm"
+                      >
+                        Sin hora
+                      </span>
+                      <span
+                        v-else-if="item.timeState === 'future'"
+                        class="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm"
+                      >
+                        Hora futura
+                      </span>
+                      <span
+                        v-else
+                        :class="[
+                          'text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg shadow-sm border flex items-center gap-1',
+                          item.alertLevel === 'urgent' ? 'text-rose-700 bg-rose-50 border-rose-200' :
+                          item.alertLevel === 'attention' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                          'text-slate-600 bg-slate-50 border-slate-200'
+                        ]"
+                      >
+                        <i v-if="item.alertLevel === 'urgent'" class="pi pi-exclamation-triangle text-[9px] text-rose-600"></i>
+                        {{ item.displayTime }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="opDashboardMetrics.longestWaitingTables.length === 0"
+                    class="py-8 text-center bg-slate-50/30 rounded-2xl border border-dashed border-slate-200/60"
+                  >
+                    <i class="pi pi-check-circle text-2xl text-slate-400 mb-2 block"></i>
+                    <p class="text-xs font-semibold text-slate-400">Servicio al día. No hay comandas pendientes de preparación.</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           <!-- 3. KPIs CON SPARKLINES -->
           <div class="space-y-4">
             <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Rendimiento Operativo</h4>
@@ -693,7 +805,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useMesasStore } from '../stores/mesas'
 import { useReservasStore } from '../stores/reservas'
@@ -951,6 +1063,239 @@ const wfProductivityRatio = computed(() => {
   if (costToday === 0) return 0
   return salesToday / costToday
 })
+
+// Must remain aligned with validated KDS/BDS thresholds.
+// Kitchen: 10/20 min. Bar: 5/10 min.
+const KITCHEN_ATTENTION_THRESHOLD_MINUTES = 10
+const KITCHEN_URGENT_THRESHOLD_MINUTES = 20
+const BAR_ATTENTION_THRESHOLD_MINUTES = 5
+const BAR_URGENT_THRESHOLD_MINUTES = 10
+
+const OP_ALERT_RANK = {
+  none: 0,
+  normal: 1,
+  attention: 2,
+  urgent: 3
+} as const
+
+const nowRef = ref(Date.now())
+let operationalClockInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  nowRef.value = Date.now()
+  operationalClockInterval = setInterval(() => {
+    nowRef.value = Date.now()
+  }, 60_000)
+})
+
+onUnmounted(() => {
+  if (operationalClockInterval !== null) {
+    clearInterval(operationalClockInterval)
+    operationalClockInterval = null
+  }
+})
+
+// Helpers
+const opGetLineStation = (item: any): 'KITCHEN' | 'BAR' | 'UNKNOWN' => {
+  const station = item.productionStation
+  if (station === 'KITCHEN') return 'KITCHEN'
+  if (station === 'BAR') return 'BAR'
+  if (!station) {
+    if (item.category === 'bebidas') return 'BAR'
+    if (item.category) return 'KITCHEN'
+  }
+  return 'UNKNOWN'
+}
+
+const opGetLineAlertLevel = (item: any): 'normal' | 'attention' | 'urgent' | 'none' => {
+  if (item.status === 'ready' || item.status === 'served') return 'none'
+  const ts = item.createdAt
+  if (typeof ts !== 'number' || !Number.isFinite(ts) || nowRef.value - ts < 0) return 'none'
+
+  const elapsed = Math.floor((nowRef.value - ts) / 60_000)
+  const station = opGetLineStation(item)
+  if (station === 'KITCHEN') {
+    return elapsed >= KITCHEN_URGENT_THRESHOLD_MINUTES ? 'urgent' : elapsed >= KITCHEN_ATTENTION_THRESHOLD_MINUTES ? 'attention' : 'normal'
+  }
+  if (station === 'BAR') {
+    return elapsed >= BAR_URGENT_THRESHOLD_MINUTES ? 'urgent' : elapsed >= BAR_ATTENTION_THRESHOLD_MINUTES ? 'attention' : 'normal'
+  }
+  return 'none'
+}
+
+interface OpTableWaitingData {
+  tableId: string
+  tableNumber: number
+  oldestCreatedAt?: number
+  timeState: 'past' | 'future' | 'invalid'
+  displayTime: string
+  alertLevel: 'normal' | 'attention' | 'urgent' | 'none'
+  criticalStation: 'Cocina' | 'Barra' | 'Ninguna'
+  stations: string
+}
+
+// Consolidated Metrics
+const opDashboardMetrics = computed(() => {
+  let tablesInService = 0
+  let pendingLinesCount = 0
+  let preparingLinesCount = 0
+  let urgentTablesCount = 0
+  let kitchenActiveLinesCount = 0
+  let barActiveLinesCount = 0
+  const longestWaitingTables: OpTableWaitingData[] = []
+
+  mesasStore.tables.forEach(t => {
+    let hasActive = false
+    let hasService = false
+    let oldestPast: number | undefined = undefined
+    let oldestFuture: number | undefined = undefined
+
+    let highestLevel: 'normal' | 'attention' | 'urgent' | 'none' = 'none'
+    let criticalStation: 'Cocina' | 'Barra' | 'Ninguna' = 'Ninguna'
+    let criticalTimestamp: number | null = null
+    const stationsSet = new Set<string>()
+
+    for (const o of t.orders) {
+      if (o.status === 'pending' || o.status === 'preparing' || o.status === 'ready') {
+        hasService = true
+      }
+
+      if (o.status === 'pending' || o.status === 'preparing') {
+        hasActive = true
+        if (o.status === 'pending') pendingLinesCount++
+        else preparingLinesCount++
+
+        const station = opGetLineStation(o)
+        if (station === 'KITCHEN') {
+          kitchenActiveLinesCount++
+          stationsSet.add('Cocina')
+        } else if (station === 'BAR') {
+          barActiveLinesCount++
+          stationsSet.add('Barra')
+        }
+
+        const ts = o.createdAt
+        if (typeof ts === 'number' && Number.isFinite(ts)) {
+          if (ts <= nowRef.value) {
+            if (oldestPast === undefined || ts < oldestPast) oldestPast = ts
+          } else {
+            if (oldestFuture === undefined || ts < oldestFuture) oldestFuture = ts
+          }
+        }
+
+        // Alert Level evaluation
+        const level = opGetLineAlertLevel(o)
+        const rank = OP_ALERT_RANK[level]
+        const highestRank = OP_ALERT_RANK[highestLevel]
+
+        const levelStation = station === 'KITCHEN' ? 'Cocina' : station === 'BAR' ? 'Barra' : 'Ninguna'
+        const levelTs = typeof ts === 'number' && Number.isFinite(ts) && ts <= nowRef.value ? ts : null
+
+        if (rank > highestRank) {
+          highestLevel = level
+          criticalStation = levelStation
+          criticalTimestamp = levelTs
+        } else if (rank === highestRank && level !== 'none') {
+          if (levelTs !== null) {
+            if (criticalTimestamp === null || levelTs < criticalTimestamp) {
+              criticalStation = levelStation
+              criticalTimestamp = levelTs
+            }
+          }
+        }
+      }
+    }
+
+    if (hasService) tablesInService++
+    if (highestLevel === 'urgent') urgentTablesCount++
+
+    if (hasActive) {
+      let displayTime = 'Sin hora'
+      let timeState: 'past' | 'future' | 'invalid' = 'invalid'
+      let representativeTs = oldestPast
+
+      if (oldestPast !== undefined) {
+        timeState = 'past'
+        const elapsed = Math.floor((nowRef.value - oldestPast) / 60_000)
+        displayTime = `${elapsed} min`
+      } else if (oldestFuture !== undefined) {
+        timeState = 'future'
+        displayTime = 'Hora futura'
+        representativeTs = oldestFuture
+      }
+
+      longestWaitingTables.push({
+        tableId: t.id,
+        tableNumber: t.number,
+        oldestCreatedAt: representativeTs,
+        timeState,
+        displayTime,
+        alertLevel: highestLevel,
+        criticalStation,
+        stations: stationsSet.size > 0 ? Array.from(stationsSet).join(' y ') : 'Sin clasificar'
+      })
+    }
+  })
+
+  // Sort and slice longest waiting tables
+  longestWaitingTables.sort((a, b) => {
+    if (a.timeState === 'past' && b.timeState !== 'past') return -1
+    if (a.timeState !== 'past' && b.timeState === 'past') return 1
+    if (a.timeState === 'past' && b.timeState === 'past') return a.oldestCreatedAt! - b.oldestCreatedAt!
+
+    if (a.timeState === 'future' && b.timeState !== 'future') return -1
+    if (a.timeState !== 'future' && b.timeState === 'future') return 1
+    if (a.timeState === 'future' && b.timeState === 'future') return a.oldestCreatedAt! - b.oldestCreatedAt!
+
+    return a.tableNumber - b.tableNumber
+  })
+
+  return {
+    tablesInService,
+    pendingLinesCount,
+    preparingLinesCount,
+    urgentTablesCount,
+    kitchenActiveLinesCount,
+    barActiveLinesCount,
+    longestWaitingTables: longestWaitingTables.slice(0, 5)
+  }
+})
+
+// KPI configuration for iteration
+const opKpiCards = computed(() => [
+  {
+    key: 'tables',
+    label: 'Mesas en servicio',
+    value: opDashboardMetrics.value.tablesInService,
+    helper: 'mesas activas',
+    icon: 'pi-users',
+    valueClass: 'text-[#08071A]'
+  },
+  {
+    key: 'pending',
+    label: 'Líneas pendientes',
+    value: opDashboardMetrics.value.pendingLinesCount,
+    helper: 'comandas en cola',
+    icon: 'pi-clock text-sky-500',
+    valueClass: 'text-[#08071A]'
+  },
+  {
+    key: 'preparing',
+    label: 'En preparación',
+    value: opDashboardMetrics.value.preparingLinesCount,
+    helper: 'en elaboración',
+    icon: 'pi-spinner text-[#9235DF]',
+    valueClass: 'text-[#08071A]'
+  },
+  {
+    key: 'urgent',
+    label: 'Mesas urgentes',
+    value: opDashboardMetrics.value.urgentTablesCount,
+    helper: 'espera excedida',
+    icon: 'pi-exclamation-triangle text-rose-500',
+    valueClass: opDashboardMetrics.value.urgentTablesCount > 0 ? 'text-rose-600' : 'text-[#08071A]'
+  }
+])
 
 // Simulate random sale
 const generateMockSale = () => {
