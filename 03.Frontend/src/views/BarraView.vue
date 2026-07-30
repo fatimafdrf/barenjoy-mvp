@@ -98,7 +98,7 @@
               :key="group.tableId"
               :class="[
                 'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden border-slate-200/70 hover:border-slate-350',
-                getGroupBorderClass(group)
+                getGroupBorderClass(group, 'pending')
               ]"
             >
               <div class="space-y-3">
@@ -109,9 +109,34 @@
                     </span>
                     <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
-                  <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                    {{ getGroupElapsedTime(group) }}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span
+                      v-if="getGroupAlertLevel(group, 'pending') === 'attention'"
+                      class="text-[9px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded"
+                    >
+                      Espera
+                    </span>
+                    <span
+                      v-else-if="getGroupAlertLevel(group, 'pending') === 'urgent'"
+                      class="text-[9px] font-black uppercase text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded"
+                    >
+                      Urgente
+                    </span>
+                    <span
+                      v-else-if="typeof group.oldestCreatedAt !== 'number'"
+                      class="text-[9px] font-black uppercase text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded"
+                    >
+                      Sin hora
+                    </span>
+
+                    <span :class="['text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1', getGroupTimeClass(group, 'pending')]">
+                      <i
+                        v-if="getGroupAlertLevel(group, 'pending') === 'urgent'"
+                        class="pi pi-exclamation-triangle text-[9px] text-rose-600"
+                      ></i>
+                      {{ getGroupElapsedTime(group) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="space-y-2.5 my-2">
@@ -185,7 +210,7 @@
               :key="group.tableId"
               :class="[
                 'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden border-slate-200/70 hover:border-slate-350',
-                getGroupBorderClass(group)
+                getGroupBorderClass(group, 'preparing')
               ]"
             >
               <div class="space-y-3">
@@ -196,9 +221,34 @@
                     </span>
                     <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
-                  <span class="text-[10px] font-mono font-bold text-[#9235DF] bg-[#9235DF]/5 px-2 py-0.5 rounded border border-slate-100">
-                    {{ getGroupElapsedTime(group) }}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span
+                      v-if="getGroupAlertLevel(group, 'preparing') === 'attention'"
+                      class="text-[9px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded"
+                    >
+                      Espera
+                    </span>
+                    <span
+                      v-else-if="getGroupAlertLevel(group, 'preparing') === 'urgent'"
+                      class="text-[9px] font-black uppercase text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded"
+                    >
+                      Urgente
+                    </span>
+                    <span
+                      v-else-if="typeof group.oldestCreatedAt !== 'number'"
+                      class="text-[9px] font-black uppercase text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded"
+                    >
+                      Sin hora
+                    </span>
+
+                    <span :class="['text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1', getGroupTimeClass(group, 'preparing')]">
+                      <i
+                        v-if="getGroupAlertLevel(group, 'preparing') === 'urgent'"
+                        class="pi pi-exclamation-triangle text-[9px] text-rose-600"
+                      ></i>
+                      {{ getGroupElapsedTime(group) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="space-y-2.5 my-2">
@@ -272,7 +322,7 @@
               :key="group.tableId"
               :class="[
                 'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden border-slate-200/70 hover:border-slate-350',
-                getGroupBorderClass(group)
+                getGroupBorderClass(group, 'ready')
               ]"
             >
               <div class="space-y-3">
@@ -283,9 +333,18 @@
                     </span>
                     <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
-                  <span class="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    Listo
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span
+                      v-if="typeof group.oldestCreatedAt !== 'number'"
+                      class="text-[9px] font-black uppercase text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded"
+                    >
+                      Sin hora
+                    </span>
+
+                    <span :class="['text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1', getGroupTimeClass(group, 'ready')]">
+                      {{ getGroupElapsedTime(group) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="space-y-2.5 my-2">
@@ -354,7 +413,10 @@
             <div
               v-for="group in servedItems"
               :key="group.tableId"
-              class="p-4 rounded-2xl bg-white border border-slate-200/50 shadow-none relative overflow-hidden opacity-65 hover:opacity-90 transition-opacity"
+              :class="[
+                'p-4 rounded-2xl bg-white border border-slate-200/50 shadow-none relative overflow-hidden opacity-65 hover:opacity-90 transition-opacity',
+                getGroupBorderClass(group, 'served')
+              ]"
             >
               <div class="space-y-3">
                 <div class="flex justify-between items-start">
@@ -364,9 +426,18 @@
                     </span>
                     <h4 class="font-black text-slate-700 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
-                  <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
-                    Entregado
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span
+                      v-if="typeof group.oldestCreatedAt !== 'number'"
+                      class="text-[9px] font-black uppercase text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded"
+                    >
+                      Sin hora
+                    </span>
+
+                    <span :class="['text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1', getGroupTimeClass(group, 'served')]">
+                      {{ getGroupElapsedTime(group) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="space-y-2 my-2">
@@ -646,18 +717,78 @@ const getGroupElapsedTime = (group: ProductionTableGroup) => {
   return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }
 
-const getGroupBorderClass = (group: ProductionTableGroup) => {
-  if (typeof group.oldestCreatedAt !== 'number') return 'border-slate-200/70'
-  const secs = Math.max(0, Math.floor((nowRef.value - group.oldestCreatedAt) / 1000))
-  if (secs < 120) return 'border-l-4 border-l-emerald-500 border-slate-200/70'
-  if (secs >= 120 && secs < 300) return 'border-l-4 border-l-amber-500 border-slate-200/70'
-  return 'border-l-4 border-l-rose-500 border-slate-200/70 animate-pulse'
+const ATTENTION_THRESHOLD_MINUTES = 5
+const URGENT_THRESHOLD_MINUTES = 10
+
+export type GroupAlertLevel = 'normal' | 'attention' | 'urgent' | 'none'
+
+const getGroupAlertLevel = (
+  group: ProductionTableGroup,
+  status: OrderItemStatus
+): GroupAlertLevel => {
+  if (status === 'ready' || status === 'served') return 'none'
+
+  const timestamp = group.oldestCreatedAt
+
+  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
+    return 'none'
+  }
+
+  const elapsedMs = nowRef.value - timestamp
+
+  if (elapsedMs < 0) return 'none'
+
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000)
+
+  if (elapsedMinutes >= URGENT_THRESHOLD_MINUTES) {
+    return 'urgent'
+  }
+
+  if (elapsedMinutes >= ATTENTION_THRESHOLD_MINUTES) {
+    return 'attention'
+  }
+
+  return 'normal'
 }
 
-const isGroupLate = (group: ProductionTableGroup) => {
-  if (typeof group.oldestCreatedAt !== 'number') return false
-  const secs = Math.max(0, Math.floor((nowRef.value - group.oldestCreatedAt) / 1000))
-  return secs >= 300
+const getGroupBorderClass = (group: ProductionTableGroup, status: OrderItemStatus): string => {
+  if (typeof group.oldestCreatedAt !== 'number') {
+    return 'border-l-4 border-l-slate-300 border-slate-200/70'
+  }
+
+  const alertLevel = getGroupAlertLevel(group, status)
+
+  switch (alertLevel) {
+    case 'attention':
+      return 'border-l-4 border-l-amber-500 border-slate-200/70'
+    case 'urgent':
+      return 'border-l-4 border-l-rose-500 border-slate-200/70'
+    case 'normal':
+    case 'none':
+    default:
+      return 'border-slate-200/70'
+  }
+}
+
+const getGroupTimeClass = (group: ProductionTableGroup, status: OrderItemStatus): string => {
+  const alertLevel = getGroupAlertLevel(group, status)
+  if (alertLevel === 'attention') {
+    return 'text-amber-600 bg-amber-50 border-amber-100'
+  }
+  if (alertLevel === 'urgent') {
+    return 'text-rose-600 bg-rose-50 border-rose-100 font-bold'
+  }
+  if (status === 'preparing') {
+    return 'text-[#9235DF] bg-[#9235DF]/5 border-slate-100'
+  }
+  if (status === 'ready') {
+    return 'text-emerald-600 bg-emerald-50 border-emerald-100'
+  }
+  return 'text-slate-400 bg-slate-50 border-slate-100'
+}
+
+const isGroupLate = (group: ProductionTableGroup): boolean => {
+  return getGroupAlertLevel(group, 'pending') === 'urgent'
 }
 
 // Kanban columns filtering
