@@ -94,58 +94,67 @@
             class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
           >
             <div
-              v-for="ticket in pendingItems"
-              :key="ticket.item.id"
-              draggable="true"
-              @dragstart="onCardDragStart($event, ticket)"
+              v-for="group in pendingItems"
+              :key="group.tableId"
               :class="[
-                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden cursor-grab active:cursor-grabbing border-slate-200/70 hover:border-slate-350',
-                ticket.elapsedSeconds < 120 ? 'border-l-4 border-l-emerald-500' : '',
-                ticket.elapsedSeconds >= 120 && ticket.elapsedSeconds < 300 ? 'border-l-4 border-l-amber-500' : '',
-                ticket.elapsedSeconds >= 300 ? 'border-l-4 border-l-rose-500 animate-pulse' : ''
+                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden border-slate-200/70 hover:border-slate-350',
+                getGroupBorderClass(group)
               ]"
             >
               <div class="space-y-3">
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
+                      M-{{ group.tableNumber }}
                     </span>
-                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
                   <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                    {{ ticket.elapsedTime }}
+                    {{ getGroupElapsedTime(group) }}
                   </span>
                 </div>
 
-                <div class="text-sm font-black text-slate-800">
-                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
-                </div>
-
-                <!-- Modifiers & Custom notes -->
-                <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-1">
-                  <span
-                    v-for="mod in parseModifiers(ticket.item.notes)"
-                    :key="mod"
-                    class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                <div class="space-y-2.5 my-2">
+                  <div
+                    v-for="ticket in group.items"
+                    :key="ticket.item.id"
+                    draggable="true"
+                    @dragstart="onCardDragStart($event, ticket)"
+                    class="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all flex flex-col gap-1.5 cursor-grab active:cursor-grabbing"
                   >
-                    {{ mod }}
-                  </span>
-                </div>
+                    <div class="flex justify-between items-center text-sm font-black text-slate-800">
+                      <span>{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+                      <span class="text-[9px] font-black uppercase text-slate-450 font-mono tracking-wider bg-white border border-slate-100 px-1.5 py-0.5 rounded">
+                        {{ getDestinationBadgeLabel(ticket.item) }}
+                      </span>
+                    </div>
 
-                <div class="pt-3 border-t border-slate-50 flex justify-between items-center">
-                  <span v-if="ticket.isLate" class="text-[9px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded animate-pulse">
-                    ¡Retrasado!
-                  </span>
-                  <span v-else class="text-[9px] text-slate-400 font-bold">En cola</span>
+                    <!-- Modifiers & Custom notes -->
+                    <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-0.5">
+                      <span
+                        v-for="mod in parseModifiers(ticket.item.notes)"
+                        :key="mod"
+                        class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                      >
+                        {{ mod }}
+                      </span>
+                    </div>
 
-                  <button
-                    @click="updateStatus(ticket.tableId, ticket.item.id, 'preparing')"
-                    class="px-3.5 py-1.5 bg-slate-900 hover:bg-black text-white font-black text-xs rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
-                  >
-                    <span>Aceptar</span>
-                    <i class="pi pi-chevron-right text-[10px]"></i>
-                  </button>
+                    <div class="pt-2.5 border-t border-slate-200/65 flex justify-between items-center">
+                      <span v-if="ticket.isLate" class="text-[9px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded animate-pulse">
+                        ¡Retrasado!
+                      </span>
+                      <span v-else class="text-[9px] text-slate-400 font-bold">En cola</span>
+
+                      <button
+                        @click="updateStatus(group.tableId, ticket.item.id, 'preparing')"
+                        class="px-2.5 py-1 bg-slate-900 hover:bg-black text-white font-black text-[10px] rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                      >
+                        <span>Aceptar</span>
+                        <i class="pi pi-chevron-right text-[8px]"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -172,58 +181,67 @@
             class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
           >
             <div
-              v-for="ticket in preparingItems"
-              :key="ticket.item.id"
-              draggable="true"
-              @dragstart="onCardDragStart($event, ticket)"
+              v-for="group in preparingItems"
+              :key="group.tableId"
               :class="[
-                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden cursor-grab active:cursor-grabbing border-slate-200/70 hover:border-slate-350',
-                ticket.elapsedSeconds < 120 ? 'border-l-4 border-l-emerald-500' : '',
-                ticket.elapsedSeconds >= 120 && ticket.elapsedSeconds < 300 ? 'border-l-4 border-l-amber-500' : '',
-                ticket.elapsedSeconds >= 300 ? 'border-l-4 border-l-rose-500 animate-pulse' : ''
+                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden border-slate-200/70 hover:border-slate-350',
+                getGroupBorderClass(group)
               ]"
             >
               <div class="space-y-3">
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
+                      M-{{ group.tableNumber }}
                     </span>
-                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
                   <span class="text-[10px] font-mono font-bold text-[#9235DF] bg-[#9235DF]/5 px-2 py-0.5 rounded border border-slate-100">
-                    {{ ticket.elapsedTime }}
+                    {{ getGroupElapsedTime(group) }}
                   </span>
                 </div>
 
-                <div class="text-sm font-black text-slate-800">
-                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
-                </div>
-
-                <!-- Modifiers & Custom notes -->
-                <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-1">
-                  <span
-                    v-for="mod in parseModifiers(ticket.item.notes)"
-                    :key="mod"
-                    class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                <div class="space-y-2.5 my-2">
+                  <div
+                    v-for="ticket in group.items"
+                    :key="ticket.item.id"
+                    draggable="true"
+                    @dragstart="onCardDragStart($event, ticket)"
+                    class="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all flex flex-col gap-1.5 cursor-grab active:cursor-grabbing"
                   >
-                    {{ mod }}
-                  </span>
-                </div>
+                    <div class="flex justify-between items-center text-sm font-black text-slate-800">
+                      <span>{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+                      <span class="text-[9px] font-black uppercase text-slate-450 font-mono tracking-wider bg-white border border-slate-100 px-1.5 py-0.5 rounded">
+                        {{ getDestinationBadgeLabel(ticket.item) }}
+                      </span>
+                    </div>
 
-                <div class="pt-3 border-t border-slate-50 flex justify-between items-center">
-                  <span v-if="ticket.isLate" class="text-[9px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
-                    ¡Retrasado!
-                  </span>
-                  <span v-else class="text-[9px] text-[#9235DF] font-bold animate-pulse">Cocinando...</span>
+                    <!-- Modifiers & Custom notes -->
+                    <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-0.5">
+                      <span
+                        v-for="mod in parseModifiers(ticket.item.notes)"
+                        :key="mod"
+                        class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                      >
+                        {{ mod }}
+                      </span>
+                    </div>
 
-                  <button
-                    @click="updateStatus(ticket.tableId, ticket.item.id, 'ready')"
-                    class="px-3.5 py-1.5 bg-[#9235DF] hover:bg-[#562AAC] text-white font-black text-xs rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
-                  >
-                    <span>Listo</span>
-                    <i class="pi pi-check-circle text-[10px]"></i>
-                  </button>
+                    <div class="pt-2.5 border-t border-slate-200/65 flex justify-between items-center">
+                      <span v-if="ticket.isLate" class="text-[9px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                        ¡Retrasado!
+                      </span>
+                      <span v-else class="text-[9px] text-[#9235DF] font-bold animate-pulse">Cocinando...</span>
+
+                      <button
+                        @click="updateStatus(group.tableId, ticket.item.id, 'ready')"
+                        class="px-2.5 py-1 bg-[#9235DF] hover:bg-[#562AAC] text-white font-black text-[10px] rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                      >
+                        <span>Listo</span>
+                        <i class="pi pi-check-circle text-[8px]"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -250,55 +268,64 @@
             class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
           >
             <div
-              v-for="ticket in readyItems"
-              :key="ticket.item.id"
-              draggable="true"
-              @dragstart="onCardDragStart($event, ticket)"
+              v-for="group in readyItems"
+              :key="group.tableId"
               :class="[
-                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden cursor-grab active:cursor-grabbing border-slate-200/70 hover:border-slate-350',
-                ticket.elapsedSeconds < 120 ? 'border-l-4 border-l-emerald-500' : '',
-                ticket.elapsedSeconds >= 120 && ticket.elapsedSeconds < 300 ? 'border-l-4 border-l-amber-500' : '',
-                ticket.elapsedSeconds >= 300 ? 'border-l-4 border-l-rose-500' : ''
+                'p-4 rounded-2xl bg-white border shadow-sm transition-all duration-300 relative group overflow-hidden border-slate-200/70 hover:border-slate-350',
+                getGroupBorderClass(group)
               ]"
             >
               <div class="space-y-3">
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
+                      M-{{ group.tableNumber }}
                     </span>
-                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                    <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
                   <span class="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                     Listo
                   </span>
                 </div>
 
-                <div class="text-sm font-black text-slate-800">
-                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
-                </div>
-
-                <!-- Modifiers & Custom notes -->
-                <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-1">
-                  <span
-                    v-for="mod in parseModifiers(ticket.item.notes)"
-                    :key="mod"
-                    class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                <div class="space-y-2.5 my-2">
+                  <div
+                    v-for="ticket in group.items"
+                    :key="ticket.item.id"
+                    draggable="true"
+                    @dragstart="onCardDragStart($event, ticket)"
+                    class="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all flex flex-col gap-1.5 cursor-grab active:cursor-grabbing"
                   >
-                    {{ mod }}
-                  </span>
-                </div>
+                    <div class="flex justify-between items-center text-sm font-black text-slate-800">
+                      <span>{{ ticket.item.quantity }}x {{ ticket.item.name }}</span>
+                      <span class="text-[9px] font-black uppercase text-slate-450 font-mono tracking-wider bg-white border border-slate-100 px-1.5 py-0.5 rounded">
+                        {{ getDestinationBadgeLabel(ticket.item) }}
+                      </span>
+                    </div>
 
-                <div class="pt-3 border-t border-slate-50 flex justify-between items-center">
-                  <span class="text-[9px] text-emerald-600 font-bold">Esperando retirar</span>
+                    <!-- Modifiers & Custom notes -->
+                    <div v-if="ticket.item.notes" class="flex flex-wrap gap-1.5 pt-0.5">
+                      <span
+                        v-for="mod in parseModifiers(ticket.item.notes)"
+                        :key="mod"
+                        class="px-2 py-0.5 bg-rose-50/50 text-rose-700 rounded text-[9px] font-semibold border border-rose-100/50"
+                      >
+                        {{ mod }}
+                      </span>
+                    </div>
 
-                  <button
-                    @click="updateStatus(ticket.tableId, ticket.item.id, 'served')"
-                    class="px-3.5 py-1.5 bg-emerald-550 hover:bg-emerald-600 text-white font-black text-xs rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
-                  >
-                    <span>Entregar</span>
-                    <i class="pi pi-check text-[10px]"></i>
-                  </button>
+                    <div class="pt-2.5 border-t border-slate-200/65 flex justify-between items-center">
+                      <span class="text-[9px] text-emerald-600 font-bold">Esperando retirar</span>
+
+                      <button
+                        @click="updateStatus(group.tableId, ticket.item.id, 'served')"
+                        class="px-2.5 py-1 bg-emerald-550 hover:bg-emerald-600 text-white font-black text-[10px] rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                      >
+                        <span>Entregar</span>
+                        <i class="pi pi-check text-[8px]"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -325,25 +352,31 @@
             class="flex-1 overflow-y-auto p-4 space-y-4 min-h-[350px] bg-[#FCFCFD]/40"
           >
             <div
-              v-for="ticket in servedItems"
-              :key="ticket.item.id"
+              v-for="group in servedItems"
+              :key="group.tableId"
               class="p-4 rounded-2xl bg-white border border-slate-200/50 shadow-none relative overflow-hidden opacity-65 hover:opacity-90 transition-opacity"
             >
               <div class="space-y-3">
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
+                      M-{{ group.tableNumber }}
                     </span>
-                    <h4 class="font-black text-slate-700 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
+                    <h4 class="font-black text-slate-700 text-base leading-tight mt-0.5">{{ group.tableName }}</h4>
                   </div>
                   <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
                     Entregado
                   </span>
                 </div>
 
-                <div class="text-sm font-bold text-slate-500 line-through">
-                  {{ ticket.item.quantity }}x {{ ticket.item.name }}
+                <div class="space-y-2 my-2">
+                  <div
+                    v-for="ticket in group.items"
+                    :key="ticket.item.id"
+                    class="text-sm font-bold text-slate-500 line-through"
+                  >
+                    {{ ticket.item.quantity }}x {{ ticket.item.name }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -481,52 +514,167 @@ const mappedKdsItems = computed(() => {
     })
   })
 
-  // Sort based on sortMode
-  const getCreatedAt = (item: any) => item.createdAt ?? 0
+  return items
+})
 
-  return items.sort((a, b) => {
-    if (sortMode.value === 'oldest') {
-      const ca = getCreatedAt(a.item)
-      const cb = getCreatedAt(b.item)
-      if (ca !== cb) return ca - cb
-      if (a.tableNumber !== b.tableNumber) return a.tableNumber - b.tableNumber
-      return a.item.id.localeCompare(b.item.id)
-    } else if (sortMode.value === 'table') {
-      if (a.tableNumber !== b.tableNumber) return a.tableNumber - b.tableNumber
-      const ca = getCreatedAt(a.item)
-      const cb = getCreatedAt(b.item)
-      if (ca !== cb) return ca - cb
-      return a.item.id.localeCompare(b.item.id)
-    } else {
-      const ca = getCreatedAt(a.item)
-      const cb = getCreatedAt(b.item)
-      if (ca !== cb) {
-        if (ca === 0) return 1
-        if (cb === 0) return -1
-        return cb - ca
+export interface ProductionTableGroup {
+  tableId: string
+  tableName: string
+  tableNumber: number
+  items: Array<{
+    tableNumber: number
+    tableId: string
+    item: {
+      id: string
+      name: string
+      price: number
+      quantity: number
+      status: OrderItemStatus
+      category: string
+      notes?: string
+      productionStation?: 'BAR' | 'KITCHEN'
+      createdAt?: number
+    }
+    elapsedTime: string
+    elapsedSeconds: number
+    isLate: boolean
+  }>
+  oldestCreatedAt?: number
+  newestCreatedAt?: number
+}
+
+const buildGroupsForStatus = (status: OrderItemStatus): ProductionTableGroup[] => {
+  const filtered = mappedKdsItems.value.filter(ticket => ticket.item.status === status)
+  const groupsMap: Record<string, ProductionTableGroup> = {}
+
+  filtered.forEach(ticket => {
+    const tableId = ticket.tableId
+    if (!groupsMap[tableId]) {
+      groupsMap[tableId] = {
+        tableId,
+        tableName: `Mesa ${ticket.tableNumber}`,
+        tableNumber: ticket.tableNumber,
+        items: [],
+        oldestCreatedAt: undefined,
+        newestCreatedAt: undefined
       }
-      if (a.tableNumber !== b.tableNumber) return a.tableNumber - b.tableNumber
-      return a.item.id.localeCompare(b.item.id)
+    }
+    groupsMap[tableId].items.push(ticket)
+  })
+
+  const groups = Object.values(groupsMap)
+
+  groups.forEach(group => {
+    let oldest: number | undefined = undefined
+    let newest: number | undefined = undefined
+    group.items.forEach(ticket => {
+      const createdAt = ticket.item.createdAt
+      if (typeof createdAt === 'number') {
+        if (oldest === undefined || createdAt < oldest) {
+          oldest = createdAt
+        }
+        if (newest === undefined || createdAt > newest) {
+          newest = createdAt
+        }
+      }
+    })
+    group.oldestCreatedAt = oldest
+    group.newestCreatedAt = newest
+  })
+
+  groups.sort((a, b) => {
+    if (sortMode.value === 'oldest') {
+      const hasA = typeof a.oldestCreatedAt === 'number'
+      const hasB = typeof b.oldestCreatedAt === 'number'
+      if (hasA !== hasB) {
+        return hasA ? -1 : 1
+      }
+      if (hasA && hasB) {
+        if (a.oldestCreatedAt! !== b.oldestCreatedAt!) {
+          return a.oldestCreatedAt! - b.oldestCreatedAt!
+        }
+      }
+      const nameA = a.tableName || `Mesa ${a.tableNumber}`
+      const nameB = b.tableName || `Mesa ${b.tableNumber}`
+      const nameComp = nameA.localeCompare(nameB, undefined, { numeric: true })
+      if (nameComp !== 0) return nameComp
+      return a.tableId.localeCompare(b.tableId)
+    } else if (sortMode.value === 'newest') {
+      const hasA = typeof a.newestCreatedAt === 'number'
+      const hasB = typeof b.newestCreatedAt === 'number'
+      if (hasA !== hasB) {
+        return hasA ? -1 : 1
+      }
+      if (hasA && hasB) {
+        if (a.newestCreatedAt! !== b.newestCreatedAt!) {
+          return b.newestCreatedAt! - a.newestCreatedAt!
+        }
+      }
+      const nameA = a.tableName || `Mesa ${a.tableNumber}`
+      const nameB = b.tableName || `Mesa ${b.tableNumber}`
+      const nameComp = nameA.localeCompare(nameB, undefined, { numeric: true })
+      if (nameComp !== 0) return nameComp
+      return a.tableId.localeCompare(b.tableId)
+    } else {
+      const nameA = a.tableName || `Mesa ${a.tableNumber}`
+      const nameB = b.tableName || `Mesa ${b.tableNumber}`
+      const nameComp = nameA.localeCompare(nameB, undefined, { numeric: true })
+      if (nameComp !== 0) return nameComp
+
+      const hasA = typeof a.oldestCreatedAt === 'number'
+      const hasB = typeof b.oldestCreatedAt === 'number'
+      if (hasA !== hasB) {
+        return hasA ? -1 : 1
+      }
+      if (hasA && hasB) {
+        if (a.oldestCreatedAt! !== b.oldestCreatedAt!) {
+          return a.oldestCreatedAt! - b.oldestCreatedAt!
+        }
+      }
+      return a.tableId.localeCompare(b.tableId)
     }
   })
-})
+
+  return groups
+}
+
+const getGroupElapsedTime = (group: ProductionTableGroup) => {
+  if (typeof group.oldestCreatedAt !== 'number') return 'Sin hora'
+  const secs = Math.max(0, Math.floor((nowRef.value - group.oldestCreatedAt) / 1000))
+  const min = Math.floor(secs / 60)
+  const sec = secs % 60
+  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
+
+const getGroupBorderClass = (group: ProductionTableGroup) => {
+  if (typeof group.oldestCreatedAt !== 'number') return 'border-slate-200/70'
+  const secs = Math.max(0, Math.floor((nowRef.value - group.oldestCreatedAt) / 1000))
+  if (secs < 120) return 'border-l-4 border-l-emerald-500 border-slate-200/70'
+  if (secs >= 120 && secs < 300) return 'border-l-4 border-l-amber-500 border-slate-200/70'
+  return 'border-l-4 border-l-rose-500 border-slate-200/70 animate-pulse'
+}
+
+const isGroupLate = (group: ProductionTableGroup) => {
+  if (typeof group.oldestCreatedAt !== 'number') return false
+  const secs = Math.max(0, Math.floor((nowRef.value - group.oldestCreatedAt) / 1000))
+  return secs >= 300
+}
 
 // Kanban columns filtering
 const pendingItems = computed(() => {
-  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'pending')
+  return buildGroupsForStatus('pending')
 })
 
 const preparingItems = computed(() => {
-  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'preparing')
+  return buildGroupsForStatus('preparing')
 })
 
 const readyItems = computed(() => {
-  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'ready')
+  return buildGroupsForStatus('ready')
 })
 
 const servedItems = computed(() => {
-  // Show recent history (last 10 served items)
-  return mappedKdsItems.value.filter(ticket => ticket.item.status === 'served').slice(0, 10)
+  return buildGroupsForStatus('served').slice(0, 10)
 })
 
 // Header metrics
@@ -535,15 +683,18 @@ const activeTicketsCount = computed(() => {
 })
 
 const lateTicketsCount = computed(() => {
-  return mappedKdsItems.value.filter(ticket =>
-    ticket.isLate && (ticket.item.status === 'pending' || ticket.item.status === 'preparing')
-  ).length
+  return [...pendingItems.value, ...preparingItems.value].filter(isGroupLate).length
 })
 
 const avgPrepTime = computed(() => {
   const activeList = preparingItems.value
   if (activeList.length === 0) return '9.2'
-  const sum = activeList.reduce((acc, t) => acc + t.elapsedSeconds, 0)
+  const sum = activeList.reduce((acc, g) => {
+    if (typeof g.oldestCreatedAt === 'number') {
+      return acc + Math.max(0, Math.floor((nowRef.value - g.oldestCreatedAt) / 1000))
+    }
+    return acc
+  }, 0)
   const avgMin = (sum / activeList.length) / 60
   return avgMin.toFixed(1)
 })
