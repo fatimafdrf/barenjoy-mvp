@@ -1,9 +1,9 @@
 <template>
   <div class="bg-[#F8F9FA] min-h-[calc(100vh-4rem)] text-[#08071A] font-inter antialiased select-none">
-    
+
     <!-- MAIN PERSONAL CONTAINER -->
     <div class="w-full max-w-[1600px] mx-auto p-4 md:p-6 h-[calc(100vh-6rem)] flex flex-col gap-6">
-      
+
       <!-- HEADER -->
       <div class="bg-white rounded-3xl border border-slate-100 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm shrink-0">
         <div>
@@ -16,13 +16,13 @@
 
         <!-- Navigation Tabs -->
         <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl overflow-x-auto">
-          <button 
-            v-for="tab in tabs" 
+          <button
+            v-for="tab in tabs"
             :key="tab.id"
             @click="activeTab = tab.id"
             :class="['px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0',
-              activeTab === tab.id 
-                ? 'bg-white text-[#08071A] shadow-sm' 
+              activeTab === tab.id
+                ? 'bg-white text-[#08071A] shadow-sm'
                 : 'text-slate-500 hover:text-slate-800']"
           >
             {{ tab.label }}
@@ -32,7 +32,7 @@
 
       <!-- MAIN TAB CONTENT CONTAINER -->
       <div class="flex-1 overflow-hidden min-h-0">
-        
+
         <!-- TAB 1: EMPLEADOS -->
         <div v-if="activeTab === 'empleados'" class="h-full overflow-y-auto pr-1">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -81,46 +81,80 @@
 
         <!-- TAB 2: PLANIFICADOR DE TURNOS (SHIFT BOARD) -->
         <div v-if="activeTab === 'turnos'" class="h-full bg-white rounded-3xl border border-slate-100 p-6 flex flex-col justify-between shadow-sm overflow-hidden">
-          <div class="border-b border-slate-50 pb-4 shrink-0 flex justify-between items-center gap-4">
+          <div class="border-b border-slate-50 pb-4 shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h3 class="text-sm font-black text-[#08071A] uppercase tracking-wider">Planificador Semanal de Turnos</h3>
               <p class="text-xs text-slate-450 mt-0.5 font-medium">Asigne de forma rápida el cuadrante de turnos del personal.</p>
             </div>
+            <!-- Actions & Status -->
+            <div class="flex items-center gap-3.5">
+              <span :class="['px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-wider border shadow-sm',
+                hasDraftShifts
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-250']">
+                Estado: {{ hasDraftShifts ? 'Borrador' : 'Publicado' }}
+              </span>
+              <button
+                v-if="hasDraftShifts"
+                @click="publishAllDrafts"
+                class="px-4 py-2 bg-[#9235DF] hover:bg-[#562AAC] text-white rounded-xl cursor-pointer text-[10px] font-black uppercase tracking-wider transition-colors shadow-sm"
+              >
+                Publicar Cuadrante
+              </button>
+            </div>
           </div>
 
-          <!-- Shifts Calendar Table (Monday to Sunday) -->
-          <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
-            <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
-              <div 
-                v-for="day in daysOfWeek" 
-                :key="day"
-                class="p-4 bg-slate-50/50 border border-slate-100 rounded-3xl flex flex-col gap-4 shadow-sm"
-              >
-                <span class="text-[10px] font-black text-slate-900 uppercase tracking-widest text-center block border-b border-slate-150 pb-2">
-                  {{ day }}
-                </span>
+          <!-- Shifts Matrix View -->
+          <div class="flex-1 overflow-x-auto py-4 pr-1 min-w-0">
+            <table class="w-full border-collapse text-left text-xs font-bold text-slate-700 min-w-[700px]">
+              <thead>
+                <tr class="border-b border-slate-150 text-[10px] uppercase tracking-widest text-slate-450">
+                  <th class="py-3 px-4 font-black text-slate-900">Empleado</th>
+                  <th v-for="day in daysOfWeek" :key="day" class="py-3 px-4 font-black text-slate-900 text-center w-[12%]">
+                    {{ day }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr v-for="emp in personalStore.employees" :key="emp.id" class="hover:bg-slate-50/30 transition-colors">
+                  <!-- Employee Info -->
+                  <td class="py-4 px-4 font-black text-slate-900">
+                    <span class="block">{{ emp.name }}</span>
+                    <span class="text-[9px] text-[#9235DF] font-black uppercase tracking-wider block mt-0.5">{{ emp.role }}</span>
+                  </td>
 
-                <!-- Display active shifts on that day -->
-                <div class="space-y-3">
-                  <div 
-                    v-for="shift in getShiftsByDay(day)" 
-                    :key="shift.id"
-                    class="p-3 bg-white rounded-2xl border border-slate-200/50 shadow-sm relative group text-xs text-slate-700"
-                  >
-                    <span class="font-black text-slate-900 block">{{ getEmployeeName(shift.employeeId) }}</span>
-                    <span class="text-[9px] text-indigo-600 font-bold uppercase block mt-1">Turno: {{ shift.shiftType }}</span>
-                  </div>
+                  <!-- Weekday Cells -->
+                  <td v-for="day in daysOfWeek" :key="day" class="py-3 px-3 text-center align-middle">
+                    <div v-for="shift in [getShiftForEmployeeAndDay(emp.id, day)]" :key="shift?.id || 'empty'">
+                      <div v-if="shift" class="relative group">
+                        <!-- Shift Card -->
+                        <div :class="['p-2.5 rounded-2xl border text-[10px] shadow-sm flex flex-col items-center justify-center gap-1 min-h-[56px]',
+                          shift.status === 'draft'
+                            ? 'bg-amber-50/40 border-dashed border-amber-300 text-amber-900'
+                            : 'bg-white border-slate-200 text-slate-800']">
+                          <span class="font-black capitalize">{{ shift.shiftType }}</span>
+                          <!-- Status Badge -->
+                          <span v-if="shift.status === 'draft'" class="px-1 py-0.5 rounded bg-amber-100 text-[8px] font-black uppercase tracking-wider">
+                            Borrador
+                          </span>
+                          <span v-else class="px-1 py-0.5 rounded bg-emerald-50 text-[8px] font-black uppercase tracking-wider text-emerald-700">
+                            Ok
+                          </span>
+                        </div>
+                      </div>
 
-                  <!-- Quick shift assign btn -->
-                  <button 
-                    @click="openQuickShiftAssign(day)"
-                    class="w-full py-2 bg-slate-100 hover:bg-slate-200/80 text-slate-500 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer text-center"
-                  >
-                    + Turno
-                  </button>
-                </div>
-              </div>
-            </div>
+                      <!-- Quick assign button if no shift exists -->
+                      <button v-else
+                        @click="openQuickShiftAssignForEmployee(emp.id, day)"
+                        class="w-full py-2 bg-slate-50/50 hover:bg-slate-100/80 text-slate-450 border border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer text-center min-h-[56px] flex items-center justify-center transition-all"
+                      >
+                        + Turno
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -133,8 +167,8 @@
 
           <!-- List of employees control blocks -->
           <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
-            <div 
-              v-for="emp in personalStore.employees" 
+            <div
+              v-for="emp in personalStore.employees"
               :key="emp.id"
               class="p-4 bg-slate-50/50 rounded-3xl border border-slate-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-bold text-slate-550"
             >
@@ -152,7 +186,7 @@
                 >
                   Fichar Entrada
                 </button>
-                
+
                 <div v-else class="flex items-center gap-1.5">
                   <button
                     @click="personalStore.toggleBreak(emp.id)"
@@ -182,8 +216,8 @@
 
           <!-- Performance details -->
           <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
-            <div 
-              v-for="emp in personalStore.employees" 
+            <div
+              v-for="emp in personalStore.employees"
               :key="emp.id"
               class="p-5 bg-slate-50/50 rounded-3xl border border-slate-150/70 flex flex-col sm:flex-row sm:items-center justify-between gap-6 text-xs font-bold text-slate-500"
             >
@@ -221,7 +255,7 @@
           <div class="lg:col-span-6 bg-white rounded-3xl border border-slate-100 p-5 flex flex-col justify-between overflow-hidden shadow-sm">
             <div class="shrink-0 border-b border-slate-50 pb-3 flex justify-between items-center">
               <h3 class="text-sm font-black text-slate-950 font-outfit">Histórico de Peticiones</h3>
-              
+
               <button
                 @click="openNewIncidentModal"
                 class="px-3 py-1.5 bg-[#9235DF] hover:bg-[#562AAC] text-white text-[10px] font-black rounded-lg cursor-pointer transition-colors"
@@ -232,8 +266,8 @@
 
             <!-- List of requests -->
             <div class="flex-1 overflow-y-auto py-3 space-y-3.5 pr-1">
-              <div 
-                v-for="inc in personalStore.incidents" 
+              <div
+                v-for="inc in personalStore.incidents"
                 :key="inc.id"
                 class="p-4 bg-slate-50 rounded-2xl border border-slate-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-bold text-slate-550"
               >
@@ -249,7 +283,7 @@
 
                 <!-- Incident resolve actions -->
                 <div class="flex items-center gap-2">
-                  <span 
+                  <span
                     v-if="inc.status !== 'pendiente'"
                     :class="['px-2.5 py-1 rounded-xl text-[9px] uppercase tracking-wider',
                       inc.status === 'aprobado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200']"
@@ -311,9 +345,9 @@
           <div class="space-y-1">
             <label class="font-bold text-slate-400 uppercase tracking-wider block">Colaborador</label>
             <select v-model="shiftForm.employeeId" required class="w-full bg-slate-50 border border-slate-250 rounded-xl p-3 focus:outline-none">
-              <option 
-                v-for="emp in personalStore.employees" 
-                :key="emp.id" 
+              <option
+                v-for="emp in personalStore.employees"
+                :key="emp.id"
                 :value="emp.id"
               >
                 {{ emp.name }} ({{ emp.role }})
@@ -373,9 +407,9 @@
           <div class="space-y-1">
             <label class="font-bold text-slate-400 uppercase tracking-wider block">Empleado</label>
             <select v-model="incForm.name" required class="w-full bg-slate-50 border border-slate-250 rounded-xl p-3 focus:outline-none">
-              <option 
-                v-for="emp in personalStore.employees" 
-                :key="emp.id" 
+              <option
+                v-for="emp in personalStore.employees"
+                :key="emp.id"
                 :value="emp.name"
               >
                 {{ emp.name }}
@@ -428,8 +462,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { usePersonalStore, type Shift, type ShiftType } from '../stores/personal'
+import { ref, computed } from 'vue'
+import { usePersonalStore, type ShiftType } from '../stores/personal'
 import { useBiStore } from '../stores/bi'
 
 const personalStore = usePersonalStore()
@@ -462,16 +496,6 @@ const tabs = [
 ]
 
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as const
-
-// Shift mappings
-const getShiftsByDay = (day: Shift['day']): Shift[] => {
-  return personalStore.shifts.filter(s => s.day === day)
-}
-
-const getEmployeeName = (id: string): string => {
-  const e = personalStore.employees.find(item => item.id === id)
-  return e ? e.name : 'Desconocido'
-}
 
 // Styling classes helper
 const getStatusBadgeClass = (status: string): string => {
@@ -509,14 +533,30 @@ const getProductivityRatio = (emp: any): string => {
   return (sales / cost).toFixed(1)
 }
 
-// Modal form handlers
-const openQuickShiftAssign = (day: typeof activeDay.value) => {
+const getShiftForEmployeeAndDay = (employeeId: string, day: string) => {
+  return personalStore.shifts.find(s => s.employeeId === employeeId && s.day === day)
+}
+
+const openQuickShiftAssignForEmployee = (employeeId: string, day: typeof activeDay.value) => {
   activeDay.value = day
   shiftForm.value = {
-    employeeId: personalStore.employees[0]?.id || '',
+    employeeId,
     type: 'comida'
   }
   showShiftModal.value = true
+}
+
+const hasDraftShifts = computed(() => {
+  return personalStore.shifts.some(s => s.status === 'draft')
+})
+
+const publishAllDrafts = () => {
+  personalStore.shifts.forEach(s => {
+    if (s.status === 'draft') {
+      s.status = 'published'
+    }
+  })
+  personalStore.shifts = [...personalStore.shifts]
 }
 
 const submitShiftAssignment = () => {
