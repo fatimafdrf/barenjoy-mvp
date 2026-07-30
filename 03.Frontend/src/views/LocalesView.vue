@@ -917,7 +917,8 @@ const openMixedPayment = () => {
 const processPayment = (method: 'card' | 'cash' | 'bizum' | 'mixed') => {
   if (selectedTable.value) {
     // Record payment details inside store history completedOrders
-    mesasStore.checkoutTable(selectedTable.value.id, method === 'card' ? 'card' : 'cash')
+    const finalMethod = method === 'card' ? 'card' : method === 'bizum' ? 'bizum' : 'cash'
+    mesasStore.checkoutTable(selectedTable.value.id, finalMethod)
 
     // Close payment modalls and clean active selections
     showPaymentModal.value = false

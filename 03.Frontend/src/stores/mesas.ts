@@ -34,7 +34,7 @@ export interface CompletedOrder {
   tableNumber: number
   itemsCount: number
   total: number
-  paymentMethod: 'card' | 'cash'
+  paymentMethod: 'card' | 'cash' | 'bizum'
   timestamp: string // HH:MM
 }
 
@@ -272,7 +272,7 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
-  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash'): boolean => {
+  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash' | 'bizum'): boolean => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
       const { canCheckout } = canCheckoutTable(id)
