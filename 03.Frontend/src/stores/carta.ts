@@ -13,6 +13,7 @@ export interface MenuItem {
   controlStock?: boolean
   stock?: number
   minStock?: number
+  productionStation: 'BAR' | 'KITCHEN'
 }
 
 export const useCartaStore = defineStore('carta', () => {
@@ -31,7 +32,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 8.5,
       category: 'tapas',
       allergens: ['Gluten', 'Lácteos', 'Huevo'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm2',
@@ -40,7 +42,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 6.9,
       category: 'tapas',
       allergens: ['Huevo'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm3',
@@ -49,7 +52,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 11.2,
       category: 'tapas',
       allergens: ['Gluten'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm4',
@@ -58,7 +62,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 14.5,
       category: 'platos',
       allergens: ['Gluten', 'Lácteos'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm5',
@@ -67,7 +72,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 16.8,
       category: 'platos',
       allergens: ['Pescado', 'Moluscos', 'Huevo'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm6',
@@ -76,7 +82,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 22.0,
       category: 'platos',
       allergens: [],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm7',
@@ -85,7 +92,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 2.5,
       category: 'bebidas',
       allergens: ['Gluten'],
-      available: true
+      available: true,
+      productionStation: 'BAR'
     },
     {
       id: 'm8',
@@ -94,7 +102,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 3.2,
       category: 'bebidas',
       allergens: [],
-      available: true
+      available: true,
+      productionStation: 'BAR'
     },
     {
       id: 'm9',
@@ -103,7 +112,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 7.5,
       category: 'bebidas',
       allergens: [],
-      available: true
+      available: true,
+      productionStation: 'BAR'
     },
     {
       id: 'm10',
@@ -112,7 +122,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 5.5,
       category: 'postres',
       allergens: ['Gluten', 'Lácteos', 'Huevo'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     },
     {
       id: 'm11',
@@ -121,7 +132,8 @@ export const useCartaStore = defineStore('carta', () => {
       price: 6.5,
       category: 'postres',
       allergens: ['Lácteos', 'Huevo'],
-      available: true
+      available: true,
+      productionStation: 'KITCHEN'
     }
   ])
 

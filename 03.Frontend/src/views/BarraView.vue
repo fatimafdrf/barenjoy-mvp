@@ -95,7 +95,7 @@
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
                     </span>
                     <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
                   </div>
@@ -173,7 +173,7 @@
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
                     </span>
                     <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
                   </div>
@@ -251,7 +251,7 @@
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
                     </span>
                     <h4 class="font-black text-slate-900 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
                   </div>
@@ -319,7 +319,7 @@
                 <div class="flex justify-between items-start">
                   <div>
                     <span class="text-[9px] font-black uppercase text-slate-400 font-mono tracking-wider">
-                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item.category) }}
+                      M-{{ ticket.tableNumber }} • {{ getDestinationBadgeLabel(ticket.item) }}
                     </span>
                     <h4 class="font-black text-slate-700 text-base leading-tight mt-0.5">Mesa {{ ticket.tableNumber }}</h4>
                   </div>
@@ -414,8 +414,9 @@ const goBack = () => {
   router.push('/')
 }
 
-const getDestinationBadgeLabel = (category: string) => {
-  return category === 'bebidas' ? 'BARRA' : 'COCINA'
+const getDestinationBadgeLabel = (item: any) => {
+  const station = item.productionStation || (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+  return station === 'BAR' ? 'BARRA' : 'COCINA'
 }
 
 const parseModifiers = (notes: string): string[] => {
@@ -436,6 +437,7 @@ const mappedKdsItems = computed(() => {
       status: OrderItemStatus
       category: string
       notes?: string
+      productionStation?: 'BAR' | 'KITCHEN'
     }
     elapsedTime: string
     elapsedSeconds: number
@@ -444,7 +446,8 @@ const mappedKdsItems = computed(() => {
 
   mesasStore.tables.forEach(table => {
     table.orders.forEach(orderItem => {
-      const isCocina = orderItem.category !== 'bebidas'
+      const station = orderItem.productionStation || (orderItem.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+      const isCocina = station === 'KITCHEN'
       const matchesFilter =
         (activeFilter.value === 'todos') ||
         (activeFilter.value === 'cocina' && isCocina) ||

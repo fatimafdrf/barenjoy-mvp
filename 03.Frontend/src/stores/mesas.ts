@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useReservasStore } from './reservas'
 import { useCrmStore } from './crm'
 import { useInventarioStore } from './inventario'
+import { useCartaStore } from './carta'
 
 export type TableStatus = 'free' | 'occupied' | 'reserved' | 'bill'
 export type OrderItemStatus = 'pending' | 'preparing' | 'ready' | 'served'
@@ -16,6 +17,7 @@ export interface OrderItem {
   status: OrderItemStatus
   category: 'tapas' | 'platos' | 'bebidas' | 'postres'
   notes?: string
+  productionStation?: 'BAR' | 'KITCHEN'
 }
 
 export interface Table {
@@ -49,9 +51,9 @@ export const useMesasStore = defineStore('mesas', () => {
       x: 15,
       y: 45,
       orders: [
-        { id: 'o1', menuItemId: 'm1', name: 'Croquetas de Jamón Ibérico', quantity: 1, price: 8.5, status: 'preparing', category: 'tapas' },
-        { id: 'o2', menuItemId: 'm7', name: 'Caña de Cerveza', quantity: 2, price: 2.5, status: 'served', category: 'bebidas' },
-        { id: 'o3', menuItemId: 'm2', name: 'Bravas Aveniq', quantity: 1, price: 6.9, status: 'pending', category: 'tapas' }
+        { id: 'o1', menuItemId: 'm1', name: 'Croquetas de Jamón Ibérico', quantity: 1, price: 8.5, status: 'preparing', category: 'tapas', productionStation: 'KITCHEN' },
+        { id: 'o2', menuItemId: 'm7', name: 'Caña de Cerveza', quantity: 2, price: 2.5, status: 'served', category: 'bebidas', productionStation: 'BAR' },
+        { id: 'o3', menuItemId: 'm2', name: 'Bravas Aveniq', quantity: 1, price: 6.9, status: 'pending', category: 'tapas', productionStation: 'KITCHEN' }
       ]
     },
     { id: 't3', number: 3, capacity: 2, status: 'reserved', x: 15, y: 75, orders: [] },
@@ -63,9 +65,9 @@ export const useMesasStore = defineStore('mesas', () => {
       x: 45,
       y: 15,
       orders: [
-        { id: 'o4', menuItemId: 'm4', name: 'Hamburguesa Dry Aged', quantity: 2, price: 14.5, status: 'served', category: 'platos' },
-        { id: 'o5', menuItemId: 'm8', name: 'Tinto de Verano', quantity: 2, price: 3.2, status: 'served', category: 'bebidas' },
-        { id: 'o6', menuItemId: 'm10', name: 'Coulant de Chocolate', quantity: 1, price: 5.5, status: 'served', category: 'postres' }
+        { id: 'o4', menuItemId: 'm4', name: 'Hamburguesa Dry Aged', quantity: 2, price: 14.5, status: 'served', category: 'platos', productionStation: 'KITCHEN' },
+        { id: 'o5', menuItemId: 'm8', name: 'Tinto de Verano', quantity: 2, price: 3.2, status: 'served', category: 'bebidas', productionStation: 'BAR' },
+        { id: 'o6', menuItemId: 'm10', name: 'Coulant de Chocolate', quantity: 1, price: 5.5, status: 'served', category: 'postres', productionStation: 'KITCHEN' }
       ]
     },
     { id: 't5', number: 5, capacity: 4, status: 'free', x: 45, y: 48, orders: [] },
@@ -78,7 +80,7 @@ export const useMesasStore = defineStore('mesas', () => {
       x: 75,
       y: 15,
       orders: [
-        { id: 'o7', menuItemId: 'm9', name: 'Mojito de Fresa', quantity: 1, price: 7.5, status: 'pending', category: 'bebidas' }
+        { id: 'o7', menuItemId: 'm9', name: 'Mojito de Fresa', quantity: 1, price: 7.5, status: 'pending', category: 'bebidas', productionStation: 'BAR' }
       ]
     },
     { id: 't8', number: 8, capacity: 1, status: 'free', x: 75, y: 35, orders: [] },
@@ -159,7 +161,8 @@ export const useMesasStore = defineStore('mesas', () => {
     const items: Array<{ tableNumber: number; tableId: string; item: OrderItem }> = []
     tables.value.forEach(table => {
       table.orders.forEach(item => {
-        if (item.category !== 'bebidas' && (item.status === 'pending' || item.status === 'preparing' || item.status === 'ready')) {
+        const station = item.productionStation || (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+        if (station === 'KITCHEN' && (item.status === 'pending' || item.status === 'preparing' || item.status === 'ready')) {
           items.push({
             tableNumber: table.number,
             tableId: table.id,
@@ -176,7 +179,8 @@ export const useMesasStore = defineStore('mesas', () => {
     const items: Array<{ tableNumber: number; tableId: string; item: OrderItem }> = []
     tables.value.forEach(table => {
       table.orders.forEach(item => {
-        if (item.category === 'bebidas' && (item.status === 'pending' || item.status === 'preparing' || item.status === 'ready')) {
+        const station = item.productionStation || (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+        if (station === 'BAR' && (item.status === 'pending' || item.status === 'preparing' || item.status === 'ready')) {
           items.push({
             tableNumber: table.number,
             tableId: table.id,
@@ -204,12 +208,13 @@ export const useMesasStore = defineStore('mesas', () => {
     return false
   }
 
-  const addItemsToTableOrder = (id: string, itemsToAdd: Array<{ id: string; name: string; price: number; category: any; quantity: number; notes?: string }>) => {
+  const addItemsToTableOrder = (id: string, itemsToAdd: Array<{ id: string; name: string; price: number; category: any; quantity: number; notes?: string; productionStation?: 'BAR' | 'KITCHEN' }>) => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
       if (table.status === 'free') {
         table.status = 'occupied'
       }
+      const cartaStore = useCartaStore()
       itemsToAdd.forEach(item => {
         const normalizedNote = item.notes?.trim() || ''
         const existing = table.orders.find(o =>
@@ -220,6 +225,8 @@ export const useMesasStore = defineStore('mesas', () => {
         if (existing) {
           existing.quantity += item.quantity
         } else {
+          const menuItem = cartaStore.menuItems.find(m => m.id === item.id)
+          const station = item.productionStation ?? menuItem?.productionStation ?? (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
           table.orders.push({
             id: 'o-' + Math.random().toString(36).substr(2, 9),
             menuItemId: item.id,
@@ -228,7 +235,8 @@ export const useMesasStore = defineStore('mesas', () => {
             quantity: item.quantity,
             status: 'pending',
             category: item.category,
-            notes: normalizedNote || undefined
+            notes: normalizedNote || undefined,
+            productionStation: station
           })
         }
       })
@@ -247,7 +255,8 @@ export const useMesasStore = defineStore('mesas', () => {
         // Descontar automáticamente stock de ingredientes si pasa a 'ready'
         if (status === 'ready' && oldStatus !== 'ready') {
           const inventarioStore = useInventarioStore()
-          const source = item.category === 'bebidas' ? 'Barra (BDS)' : 'Cocina (KDS)'
+          const station = item.productionStation || (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+          const source = station === 'BAR' ? 'Barra (BDS)' : 'Cocina (KDS)'
           inventarioStore.discountRawStock(item.name, item.quantity, source)
         }
 

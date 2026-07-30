@@ -86,9 +86,15 @@
           <div class="p-6 space-y-4">
             <!-- Category and price -->
             <div class="flex justify-between items-start">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-app-primary bg-app-primary-soft/45 px-2 py-0.5 rounded-md border border-app-primary/20">
-                {{ categoryName(item.category) }}
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-app-primary bg-app-primary-soft/45 px-2 py-0.5 rounded-md border border-app-primary/20">
+                  {{ categoryName(item.category) }}
+                </span>
+                <span :class="['text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border',
+                  item.productionStation === 'BAR' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200']">
+                  {{ item.productionStation === 'BAR' ? 'Barra' : 'Cocina' }}
+                </span>
+              </div>
               <span class="text-lg font-black text-app-primary">{{ item.price.toFixed(2) }} €</span>
             </div>
 
@@ -217,6 +223,18 @@
                 <option value="platos">Platos Principales</option>
                 <option value="bebidas">Bebidas & Coctelería</option>
                 <option value="postres">Postres Artesanales</option>
+              </select>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-app-text-muted uppercase tracking-wider">Estación de preparación</label>
+              <select
+                v-model="newForm.productionStation"
+                required
+                class="w-full bg-slate-50 border border-app-border text-app-text rounded-xl p-3 text-sm focus:outline-none focus:border-app-primary transition-colors cursor-pointer"
+              >
+                <option value="BAR">Barra</option>
+                <option value="KITCHEN">Cocina</option>
               </select>
             </div>
 
@@ -361,7 +379,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useCartaStore } from '../stores/carta'
 
 const cartaStore = useCartaStore()
@@ -388,7 +406,16 @@ const newForm = ref({
   available: true,
   controlStock: false,
   stock: 0,
-  minStock: 0
+  minStock: 0,
+  productionStation: 'KITCHEN' as 'BAR' | 'KITCHEN'
+})
+
+watch(() => newForm.value.category, (newCat) => {
+  if (newCat === 'bebidas') {
+    newForm.value.productionStation = 'BAR'
+  } else {
+    newForm.value.productionStation = 'KITCHEN'
+  }
 })
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -483,7 +510,8 @@ const duplicateProduct = (item: any) => {
     available: false,
     controlStock: item.controlStock || false,
     stock: item.controlStock ? 0 : undefined,
-    minStock: item.controlStock ? item.minStock : undefined
+    minStock: item.controlStock ? item.minStock : undefined,
+    productionStation: item.productionStation || (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
   }
   cartaStore.addItem(duplicate)
 }
@@ -502,7 +530,8 @@ const closeAddDialog = () => {
     available: true,
     controlStock: false,
     stock: 0,
-    minStock: 0
+    minStock: 0,
+    productionStation: 'KITCHEN'
   }
 }
 
@@ -551,7 +580,8 @@ const saveProduct = () => {
     available: newForm.value.available,
     controlStock: newForm.value.controlStock,
     stock: newForm.value.controlStock ? newForm.value.stock : undefined,
-    minStock: newForm.value.controlStock ? newForm.value.minStock : undefined
+    minStock: newForm.value.controlStock ? newForm.value.minStock : undefined,
+    productionStation: newForm.value.productionStation
   })
 
   // Reset & close
