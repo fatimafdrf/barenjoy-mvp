@@ -5,8 +5,10 @@ export type EmployeeRole = 'camarero' | 'cocinero' | 'encargado'
 export type EmployeeStatus = 'activo' | 'inactivo' | 'descanso'
 export type ShiftType = 'mañana' | 'comida' | 'tarde' | 'cena' | 'noche'
 
+export type WeekDay = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'
+
 export interface EmployeeAvailability {
-  day: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'
+  day: WeekDay
   slots: { start: string; end: string }[]
 }
 
@@ -34,9 +36,11 @@ export interface Shift {
   endTime: string // HH:MM
   status: 'draft' | 'review' | 'published'
   // Backward compatibility fields
-  day?: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'
+  day?: WeekDay
   shiftType?: ShiftType
 }
+
+export type ShiftConflictMap = Record<string, readonly string[]>
 
 export type UpdateShiftInput =
   | {
@@ -456,6 +460,178 @@ export const usePersonalStore = defineStore('personal', () => {
     return shifts.value.length < originalLength
   }
 
+  function isValidDate(dateStr: string): boolean {
+    if (!dateStr) return false
+    const parts = dateStr.split('-')
+    if (parts.length !== 3) return false
+    const y = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10)
+    const d = parseInt(parts[2], 10)
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return false
+    if (y < 2000 || y > 2100) return false
+    if (m < 1 || m > 12) return false
+
+    const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)
+    if (isLeap) {
+      daysInMonth[2] = 29
+    }
+
+    return d >= 1 && d <= daysInMonth[m]
+  }
+
+  function getEpochDay(dateStr: string): number {
+    if (!isValidDate(dateStr)) return NaN
+    const parts = dateStr.split('-')
+    const y = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10)
+    const d = parseInt(parts[2], 10)
+
+    const adjMonth = m <= 2 ? m + 12 : m
+    const adjYear = m <= 2 ? y - 1 : y
+
+    const era = Math.floor((adjYear >= 0 ? adjYear : adjYear - 399) / 400)
+    const yoe = adjYear - era * 400
+    const doy = Math.floor((153 * (adjMonth - 3) + 2) / 5) + d - 1
+    const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy
+    return era * 146097 + doe - 719468
+  }
+
+  function timeToMinutes(timeStr: string): number {
+    if (!timeStr) return NaN
+    const parts = timeStr.split(':')
+    if (parts.length !== 2) return NaN
+    const h = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10)
+    if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return NaN
+    return h * 60 + m
+  }
+
+  interface AbsoluteInterval {
+    startAbs: number
+    endAbs: number
+    isValid: boolean
+  }
+
+  function getAbsoluteInterval(dateStr: string, startTime: string, endTime: string): AbsoluteInterval {
+    const epochDay = getEpochDay(dateStr)
+    const startMin = timeToMinutes(startTime)
+    const endMin = timeToMinutes(endTime)
+
+    if (isNaN(epochDay) || isNaN(startMin) || isNaN(endMin) || startMin === endMin) {
+      return { startAbs: NaN, endAbs: NaN, isValid: false }
+    }
+
+    const startAbs = epochDay * 1440 + startMin
+    let endAbs = epochDay * 1440 + endMin
+    if (endMin < startMin) {
+      endAbs = (epochDay + 1) * 1440 + endMin
+    }
+
+    return { startAbs, endAbs, isValid: true }
+  }
+
+  function getPlannedMinutes(employeeId: string, weekStart: string): number {
+    const lEpoch = getEpochDay(weekStart)
+    if (isNaN(lEpoch)) return 0
+    const rEpoch = lEpoch + 6
+
+    let totalMinutes = 0
+    const seenKeys = new Set<string>()
+
+    shifts.value.forEach(s => {
+      if (s.employeeId !== employeeId) return
+
+      const epochDay = getEpochDay(s.date)
+      if (isNaN(epochDay) || epochDay < lEpoch || epochDay > rEpoch) return
+
+      const interval = getAbsoluteInterval(s.date, s.startTime, s.endTime)
+      if (!interval.isValid) return
+
+      const duplicateKey = `${s.employeeId}|${s.locationId}|${s.date}|${s.startTime}|${s.endTime}`
+      if (seenKeys.has(duplicateKey)) return
+      seenKeys.add(duplicateKey)
+
+      totalMinutes += (interval.endAbs - interval.startAbs)
+    })
+
+    return totalMinutes
+  }
+
+  function getShiftConflicts(employeeId: string, weekStart: string): ShiftConflictMap {
+    const lEpoch = getEpochDay(weekStart)
+    if (isNaN(lEpoch)) return {}
+    const rEpoch = lEpoch + 6
+
+    const candidateShifts = shifts.value.filter(s => {
+      if (s.employeeId !== employeeId) return false
+      const epoch = getEpochDay(s.date)
+      return isNaN(epoch) || (epoch >= lEpoch - 1 && epoch <= rEpoch + 1)
+    })
+
+    const conflictsMap: Record<string, string[]> = {}
+
+    candidateShifts.forEach(s => {
+      const epoch = getEpochDay(s.date)
+      if (!isNaN(epoch) && (epoch < lEpoch || epoch > rEpoch)) return
+
+      const errors: string[] = []
+
+      const interval = getAbsoluteInterval(s.date, s.startTime, s.endTime)
+      if (!interval.isValid) {
+        errors.push('Horario o fecha inválida')
+        conflictsMap[s.id] = errors
+        return
+      }
+
+      const hasDuplicate = shifts.value.some(other =>
+        other.id !== s.id &&
+        other.employeeId === s.employeeId &&
+        other.locationId === s.locationId &&
+        other.date === s.date &&
+        other.startTime === s.startTime &&
+        other.endTime === s.endTime
+      )
+      if (hasDuplicate) {
+        errors.push('Turno duplicado')
+      }
+
+      candidateShifts.forEach(other => {
+        if (other.id === s.id) return
+
+        if (other.employeeId === s.employeeId &&
+            other.locationId === s.locationId &&
+            other.date === s.date &&
+            other.startTime === s.startTime &&
+            other.endTime === s.endTime) {
+          return
+        }
+
+        const otherInterval = getAbsoluteInterval(other.date, other.startTime, other.endTime)
+        if (!otherInterval.isValid) return
+
+        const maxStart = Math.max(interval.startAbs, otherInterval.startAbs)
+        const minEnd = Math.min(interval.endAbs, otherInterval.endAbs)
+
+        if (maxStart < minEnd) {
+          const labelTime = `${other.startTime}-${other.endTime}`
+          const labelDay = other.day || other.date
+          if (other.locationId === s.locationId) {
+            errors.push(`Solapamiento con turno de ${labelDay} (${labelTime})`)
+          } else {
+            errors.push(`Conflicto de local (${other.locationId}) con turno de ${labelDay} (${labelTime})`)
+          }
+        }
+      })
+
+      if (errors.length > 0) {
+        conflictsMap[s.id] = errors
+      }
+    })
+
+    return conflictsMap
+  }
+
   const resolveIncident = (incidentId: string, status: PersonalIncident['status']) => {
     const inc = incidents.value.find(i => i.id === incidentId)
     if (inc) {
@@ -483,6 +659,9 @@ export const usePersonalStore = defineStore('personal', () => {
     updateShift,
     deleteShift,
     resolveIncident,
-    addIncident
+    addIncident,
+    getWeekdayDate,
+    getPlannedMinutes,
+    getShiftConflicts
   }
 })

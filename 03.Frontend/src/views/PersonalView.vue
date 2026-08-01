@@ -118,9 +118,23 @@
               <tbody class="divide-y divide-slate-100">
                 <tr v-for="emp in personalStore.employees" :key="emp.id" class="hover:bg-slate-50/30 transition-colors">
                   <!-- Employee Info -->
-                  <td class="py-4 px-4 font-black text-slate-900">
+                  <td class="py-4 px-4 font-black text-slate-900 min-w-[140px]">
                     <span class="block">{{ emp.name }}</span>
                     <span class="text-[9px] text-[#9235DF] font-black uppercase tracking-wider block mt-0.5">{{ emp.role }}</span>
+
+                    <!-- Weekly planned hours metrics -->
+                    <div class="mt-2 text-[9px] text-slate-400 font-medium">
+                      <span :class="{
+                        'text-rose-600 font-bold': Number((personalStore.getPlannedMinutes(emp.id, weekStart) / 60).toFixed(1)) > emp.weeklyHours,
+                        'text-emerald-600 font-bold': Number((personalStore.getPlannedMinutes(emp.id, weekStart) / 60).toFixed(1)) === emp.weeklyHours,
+                        'text-slate-500': Number((personalStore.getPlannedMinutes(emp.id, weekStart) / 60).toFixed(1)) < emp.weeklyHours
+                      }">
+                        {{ Number((personalStore.getPlannedMinutes(emp.id, weekStart) / 60).toFixed(1)) }}h / {{ emp.weeklyHours }}h
+                      </span>
+                      <span v-if="Number((personalStore.getPlannedMinutes(emp.id, weekStart) / 60).toFixed(1)) > emp.weeklyHours" class="text-[8px] font-bold text-rose-600 block mt-0.5 uppercase tracking-wide">
+                        Exceso planificado
+                      </span>
+                    </div>
                   </td>
 
                   <!-- Weekday Cells -->
@@ -144,6 +158,19 @@
                           <span v-else class="px-1 py-0.5 rounded bg-emerald-50 text-[8px] font-black uppercase tracking-wider text-emerald-700">
                             Ok
                           </span>
+
+                          <!-- Accessible Conflict Alerts -->
+                          <div v-if="personalStore.getShiftConflicts(emp.id, weekStart)[shift.id]?.length" class="mt-1">
+                            <button
+                              @click.stop="showConflictAlert(personalStore.getShiftConflicts(emp.id, weekStart)[shift.id])"
+                              class="px-1.5 py-0.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded text-[8px] font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-500"
+                              :aria-label="`Ver alertas de conflicto: ${personalStore.getShiftConflicts(emp.id, weekStart)[shift.id].join(', ')}`"
+                              tabindex="0"
+                            >
+                              <i class="pi pi-exclamation-triangle text-[8px]"></i>
+                              <span>Ver Alerta</span>
+                            </button>
+                          </div>
 
                           <!-- Action buttons (always visible with flex row spacing) -->
                           <div class="flex items-center gap-2 mt-1.5 border-t border-slate-100 pt-1.5 w-full justify-center">
@@ -490,7 +517,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { usePersonalStore, type ShiftType } from '../stores/personal'
+import { usePersonalStore, type ShiftType, type WeekDay } from '../stores/personal'
 import { useBiStore } from '../stores/bi'
 
 const personalStore = usePersonalStore()
@@ -505,6 +532,8 @@ const activeDay = ref<'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' |
 const isEditing = ref(false)
 const editingShiftId = ref<string | null>(null)
 const modalErrorMessage = ref<string | null>(null)
+
+const weekStart = computed(() => personalStore.getWeekdayDate('Lunes'))
 
 const shiftForm = ref({
   employeeId: 'emp1',
@@ -565,8 +594,13 @@ const getProductivityRatio = (emp: any): string => {
 }
 
 const getShiftsForEmployeeAndDay = (employeeId: string, day: string) => {
-  const filtered = personalStore.shifts.filter(s => s.employeeId === employeeId && s.day === day)
+  const targetDate = personalStore.getWeekdayDate(day as WeekDay)
+  const filtered = personalStore.shifts.filter(s => s.employeeId === employeeId && s.date === targetDate)
   return [...filtered].sort((a, b) => a.startTime.localeCompare(b.startTime))
+}
+
+const showConflictAlert = (errors: readonly string[]) => {
+  window.alert(`Alertas de conflicto para este turno:\n\n${errors.map(err => `- ${err}`).join('\n')}`)
 }
 
 const openQuickShiftAssignForEmployee = (employeeId: string, day: typeof activeDay.value) => {
