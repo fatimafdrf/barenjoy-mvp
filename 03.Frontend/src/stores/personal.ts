@@ -63,6 +63,14 @@ export interface PlannedCostResult {
   excludedEmployeeIds: readonly string[]
 }
 
+export interface AssignCalendarShiftInput {
+  employeeId: string
+  locationId: string
+  date: string
+  day: WeekDay
+  shiftType: ShiftType
+}
+
 export type UpdateShiftInput =
   | {
       mode: 'legacy'
@@ -112,7 +120,15 @@ export interface PersonalIncident {
 export const usePersonalStore = defineStore('personal', () => {
   const todayStr = new Date().toISOString().split('T')[0]
 
-  const getWeekdayDate = (dayName: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'): string => {
+  const getWeekdayDate = (
+    dayName: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo',
+    relativeToMonday?: string
+  ): string => {
+    if (relativeToMonday) {
+      const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+      const targetIndex = days.indexOf(dayName)
+      return addDays(relativeToMonday, targetIndex) || ''
+    }
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     const targetIndex = days.indexOf(dayName)
     const today = new Date()
@@ -309,6 +325,72 @@ export const usePersonalStore = defineStore('personal', () => {
         }
       }
     }
+  }
+
+  function assignCalendarShift(input: AssignCalendarShiftInput): boolean {
+    const emp = employees.value.find(e => e.id === input.employeeId)
+    if (!emp) {
+      console.warn(`Intento de asignación de turno con empleado inexistente: ${input.employeeId}`)
+      return false
+    }
+
+    if (!input.locationId) {
+      console.warn(`Intento de asignación de turno sin localización activa para ${emp.name}`)
+      return false
+    }
+
+    const validDays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    const validTypes = ['mañana', 'comida', 'tarde', 'cena', 'noche']
+    if (!validDays.includes(input.day) || !validTypes.includes(input.shiftType)) {
+      console.warn(`Intento de asignación de turno inválido: día ${input.day}, tipo ${input.shiftType}`)
+      return false
+    }
+
+    if (!isValidDate(input.date)) {
+      console.warn(`Intento de asignación de turno con fecha inválida: ${input.date}`)
+      return false
+    }
+
+    let startTime = '09:00'
+    let endTimeVal = '17:00'
+    if (input.shiftType === 'cena') {
+      startTime = '17:00'
+      endTimeVal = '01:00'
+    } else if (input.shiftType === 'tarde') {
+      startTime = '14:00'
+      endTimeVal = '22:00'
+    } else if (input.shiftType === 'mañana') {
+      startTime = '06:00'
+      endTimeVal = '14:00'
+    } else if (input.shiftType === 'noche') {
+      startTime = '22:00'
+      endTimeVal = '06:00'
+    }
+
+    const hasDuplicate = shifts.value.some(s =>
+      s.employeeId === input.employeeId &&
+      s.locationId === input.locationId &&
+      s.date === input.date &&
+      s.startTime === startTime &&
+      s.endTime === endTimeVal
+    )
+    if (hasDuplicate) {
+      console.warn(`Intento de asignación de turno duplicado: ${input.employeeId} en ${input.locationId} el ${input.date}`)
+      return false
+    }
+
+    shifts.value.push({
+      id: 'sh-' + Math.random().toString(36).substr(2, 9),
+      employeeId: input.employeeId,
+      locationId: input.locationId,
+      date: input.date,
+      startTime,
+      endTime: endTimeVal,
+      status: 'draft',
+      day: input.day,
+      shiftType: input.shiftType
+    })
+    return true
   }
 
   // Strictly typed signatures
@@ -516,6 +598,30 @@ export const usePersonalStore = defineStore('personal', () => {
     const doy = Math.floor((153 * (adjMonth - 3) + 2) / 5) + d - 1
     const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy
     return era * 146097 + doe - 719468
+  }
+
+  function epochDayToDateString(epochDay: number): string {
+    const z = epochDay + 719468
+    const era = Math.floor((z >= 0 ? z : z - 146096) / 146097)
+    const doe = z - era * 146097
+    const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365)
+    const y = yoe + era * 400
+    const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100))
+    const mp = Math.floor((5 * doy + 2) / 153)
+    const d = doy - Math.floor((153 * mp + 2) / 5) + 1
+    const m = mp < 10 ? mp + 3 : mp - 9
+    const adjYear = mp < 10 ? y : y + 1
+
+    const yearStr = String(adjYear).padStart(4, '0')
+    const monthStr = String(m).padStart(2, '0')
+    const dayStr = String(d).padStart(2, '0')
+    return `${yearStr}-${monthStr}-${dayStr}`
+  }
+
+  function addDays(dateStr: string, offset: number): string | null {
+    const epochDay = getEpochDay(dateStr)
+    if (!Number.isFinite(epochDay) || isNaN(epochDay)) return null
+    return epochDayToDateString(epochDay + offset)
   }
 
   function timeToMinutes(timeStr: string): number {
@@ -901,6 +1007,10 @@ export const usePersonalStore = defineStore('personal', () => {
     getPlannedMinutes,
     getShiftConflicts,
     getShiftAvailabilityAlerts,
-    getWeeklyWorkforceCost
+    getWeeklyWorkforceCost,
+    assignCalendarShift,
+    addDays,
+    epochDayToDateString,
+    getEpochDay
   }
 })

@@ -86,6 +86,60 @@
               <h3 class="text-sm font-black text-[#08071A] uppercase tracking-wider">Planificador Semanal de Turnos</h3>
               <p class="text-xs text-slate-450 mt-0.5 font-medium">Asigne de forma rápida el cuadrante de turnos del personal.</p>
 
+              <!-- Weekly Navigation Bar (Evolución 2.6) -->
+              <div class="mt-4 flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-1 shadow-sm">
+                  <button
+                    type="button"
+                    @click="navigateWeek(-1)"
+                    :disabled="isNavigatePrevDisabled"
+                    class="p-2 text-slate-500 hover:text-[#9235DF] disabled:opacity-30 disabled:hover:text-slate-500 transition-colors cursor-pointer disabled:cursor-not-allowed rounded-xl"
+                    title="Semana anterior"
+                  >
+                    <i class="pi pi-chevron-left text-xs"></i>
+                  </button>
+                  <span class="px-2 text-xs font-black text-slate-800 font-outfit min-w-[120px] text-center">
+                    {{ displayRangeText }}
+                  </span>
+
+                  <button
+                    type="button"
+                    @click="navigateWeek(1)"
+                    :disabled="isNavigateNextDisabled"
+                    class="p-2 text-slate-500 hover:text-[#9235DF] disabled:opacity-30 disabled:hover:text-slate-500 transition-colors cursor-pointer disabled:cursor-not-allowed rounded-xl"
+                    title="Semana siguiente"
+                  >
+                    <i class="pi pi-chevron-right text-xs"></i>
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+                  <span :class="['px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border text-center',
+                    getWeekRelation === 'past'
+                      ? 'bg-slate-100 text-slate-500 border-slate-200'
+                      : getWeekRelation === 'future'
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-150'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-250']">
+                    {{
+                      getWeekRelation === 'past'
+                        ? 'Semana pasada · Edición histórica'
+                        : getWeekRelation === 'future'
+                          ? 'Semana futura'
+                          : 'Semana actual'
+                    }}
+                  </span>
+
+                  <button
+                    v-if="!isCurrentWeek"
+                    type="button"
+                    @click="resetToCurrentWeek"
+                    class="px-3 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-650 hover:text-[#9235DF] rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer text-center"
+                  >
+                    Volver a semana actual
+                  </button>
+                </div>
+              </div>
+
               <!-- Cost Summary Block (Evolución 2.5) -->
               <div class="mt-3 p-3 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col gap-1 max-w-sm sm:max-w-md">
                 <div class="flex items-center gap-2">
@@ -117,10 +171,22 @@
             <!-- Actions & Status -->
             <div class="flex items-center gap-3.5">
               <span :class="['px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-wider border shadow-sm',
-                hasDraftShifts
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-250']">
-                Estado: {{ hasDraftShifts ? 'Borrador' : 'Publicado' }}
+                weeklyQuadrantState === 'none'
+                  ? 'bg-slate-50 text-slate-650 border-slate-200'
+                  : weeklyQuadrantState === 'draft'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : weeklyQuadrantState === 'review'
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-250']">
+                Estado: {{
+                  weeklyQuadrantState === 'none'
+                    ? 'Sin planificación'
+                    : weeklyQuadrantState === 'draft'
+                      ? 'Borrador'
+                      : weeklyQuadrantState === 'review'
+                        ? 'En revisión'
+                        : 'Publicado'
+                }}
               </span>
               <button
                 v-if="hasDraftShifts"
@@ -567,7 +633,105 @@ const isEditing = ref(false)
 const editingShiftId = ref<string | null>(null)
 const modalErrorMessage = ref<string | null>(null)
 
-const weekStart = computed(() => personalStore.getWeekdayDate('Lunes'))
+const currentWeekStart = personalStore.getWeekdayDate('Lunes')
+const weekStart = ref(currentWeekStart)
+
+const parseDisplayDate = (dateStr: string): Date | null => {
+  const parts = dateStr.split('-').map(Number)
+  if (parts.length !== 3) return null
+  const [year, month, day] = parts
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day, 12, 0, 0)
+}
+
+const displayRangeText = computed(() => {
+  const lDate = parseDisplayDate(weekStart.value)
+  const rDate = parseDisplayDate(personalStore.addDays(weekStart.value, 6) || '')
+  if (!lDate || !rDate) return ''
+
+  const fmtDay = new Intl.DateTimeFormat('es-ES', { day: 'numeric' })
+  const fmtMonthYear = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' })
+  const fmtMonth = new Intl.DateTimeFormat('es-ES', { month: 'long' })
+  if (lDate.getFullYear() !== rDate.getFullYear()) {
+    return `${fmtDay.format(lDate)} de ${fmtMonth.format(lDate)} de ${lDate.getFullYear()}–${fmtDay.format(rDate)} de ${fmtMonth.format(rDate)} de ${rDate.getFullYear()}`
+  }
+  if (lDate.getMonth() !== rDate.getMonth()) {
+    return `${fmtDay.format(lDate)} de ${fmtMonth.format(lDate)}–${fmtDay.format(rDate)} de ${fmtMonthYear.format(rDate)}`
+  }
+  return `${fmtDay.format(lDate)}–${fmtDay.format(rDate)} de ${fmtMonthYear.format(rDate)}`
+})
+
+const isCurrentWeek = computed(() => {
+  return weekStart.value === currentWeekStart
+})
+
+const navigateWeek = (offset: number) => {
+  const nextDate = personalStore.addDays(weekStart.value, offset * 7)
+  if (nextDate) {
+    const diff = personalStore.getEpochDay(nextDate) - personalStore.getEpochDay(currentWeekStart)
+    const maxDiff = 52 * 7
+    if (Math.abs(diff) <= maxDiff) {
+      weekStart.value = nextDate
+    }
+  }
+}
+
+const isNavigatePrevDisabled = computed(() => {
+  const prevDate = personalStore.addDays(weekStart.value, -7)
+  if (!prevDate) return true
+  const diff = personalStore.getEpochDay(prevDate) - personalStore.getEpochDay(currentWeekStart)
+  return Math.abs(diff) > 52 * 7
+})
+
+const isNavigateNextDisabled = computed(() => {
+  const nextDate = personalStore.addDays(weekStart.value, 7)
+  if (!nextDate) return true
+  const diff = personalStore.getEpochDay(nextDate) - personalStore.getEpochDay(currentWeekStart)
+  return Math.abs(diff) > 52 * 7
+})
+
+const resetToCurrentWeek = () => {
+  weekStart.value = currentWeekStart
+}
+
+const getWeekRelation = computed(() => {
+  const diff = personalStore.getEpochDay(weekStart.value) - personalStore.getEpochDay(currentWeekStart)
+  if (diff < 0) return 'past'
+  if (diff > 0) return 'future'
+  return 'current'
+})
+
+const isShiftInSelectedWeek = (shift: any, selectedWeekStart: string): boolean => {
+  const lEpoch = personalStore.getEpochDay(selectedWeekStart)
+  const rEpoch = lEpoch + 6
+  const epoch = personalStore.getEpochDay(shift.date)
+  return !isNaN(epoch) && epoch >= lEpoch && epoch <= rEpoch
+}
+
+const activeWeekShifts = computed(() => {
+  return personalStore.shifts.filter(s => isShiftInSelectedWeek(s, weekStart.value))
+})
+
+const hasDraftShifts = computed(() => {
+  return activeWeekShifts.value.some(s => s.status === 'draft')
+})
+
+const weeklyQuadrantState = computed(() => {
+  const ws = activeWeekShifts.value
+  if (ws.length === 0) return 'none'
+  if (ws.some(s => s.status === 'draft')) return 'draft'
+  if (ws.some(s => s.status === 'review')) return 'review'
+  return 'published'
+})
+
+const publishAllDrafts = () => {
+  personalStore.shifts.forEach(s => {
+    if (s.status === 'draft' && isShiftInSelectedWeek(s, weekStart.value)) {
+      s.status = 'published'
+    }
+  })
+  personalStore.shifts = [...personalStore.shifts]
+}
 
 const shiftForm = ref({
   employeeId: 'emp1',
@@ -629,7 +793,7 @@ const getProductivityRatio = (emp: any): string => {
 }
 
 const getShiftsForEmployeeAndDay = (employeeId: string, day: string) => {
-  const targetDate = personalStore.getWeekdayDate(day as WeekDay)
+  const targetDate = personalStore.getWeekdayDate(day as WeekDay, weekStart.value)
   const filtered = personalStore.shifts.filter(s => s.employeeId === employeeId && s.date === targetDate)
   return [...filtered].sort((a, b) => a.startTime.localeCompare(b.startTime))
 }
@@ -678,21 +842,14 @@ const confirmDeleteShift = (shift: any) => {
   }
 }
 
-const hasDraftShifts = computed(() => {
-  return personalStore.shifts.some(s => s.status === 'draft')
-})
-
-const publishAllDrafts = () => {
-  personalStore.shifts.forEach(s => {
-    if (s.status === 'draft') {
-      s.status = 'published'
-    }
-  })
-  personalStore.shifts = [...personalStore.shifts]
-}
-
 const submitShiftAssignment = () => {
   let success = false
+  const emp = personalStore.employees.find(e => e.id === shiftForm.value.employeeId)
+  if (!emp) {
+    modalErrorMessage.value = 'El colaborador seleccionado no existe.'
+    return
+  }
+
   if (isEditing.value && editingShiftId.value) {
     success = personalStore.updateShift(editingShiftId.value, {
       mode: 'legacy',
@@ -701,7 +858,18 @@ const submitShiftAssignment = () => {
       shiftType: shiftForm.value.type
     })
   } else {
-    success = personalStore.assignShift(shiftForm.value.employeeId, activeDay.value, shiftForm.value.type)
+    if (!emp.activeLocationId) {
+      modalErrorMessage.value = 'El empleado no tiene una localización activa válida'
+      return
+    }
+    const targetDate = personalStore.getWeekdayDate(activeDay.value, weekStart.value)
+    success = personalStore.assignCalendarShift({
+      employeeId: shiftForm.value.employeeId,
+      locationId: emp.activeLocationId,
+      date: targetDate,
+      day: activeDay.value,
+      shiftType: shiftForm.value.type
+    })
   }
 
   if (success) {
