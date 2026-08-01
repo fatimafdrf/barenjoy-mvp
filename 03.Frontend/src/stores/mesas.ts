@@ -21,6 +21,15 @@ export interface OrderItem {
   createdAt?: number
 }
 
+export interface ServiceZone {
+  id: string
+  locationId: string
+  name: string
+  type: 'interior' | 'terrace' | 'other'
+  active: boolean
+  order: number
+}
+
 export interface Table {
   id: string
   number: number
@@ -30,6 +39,19 @@ export interface Table {
   y: number // percentage-based Y coord for floor layout
   orders: OrderItem[]
   waiterId?: string
+  // Nuevos campos opcionales Evolución 2.8A
+  locationId?: string
+  zoneId?: string
+  type?: 'table' | 'bar'
+  active?: boolean
+}
+
+export interface NormalizedTable extends Table {
+  resolvedLocationId?: string
+  resolvedZoneId: string
+  resolvedType: 'table' | 'bar'
+  resolvedActive: boolean
+  isLegacy: boolean
 }
 
 export interface CompletedOrder {
@@ -43,7 +65,7 @@ export interface CompletedOrder {
 
 export const useMesasStore = defineStore('mesas', () => {
   const DEFAULT_TABLES: Table[] = [
-    { id: 't1', number: 1, capacity: 4, status: 'free', x: 15, y: 15, orders: [] },
+    { id: 't1', number: 1, capacity: 4, status: 'free', x: 15, y: 15, orders: [], locationId: 'l1', zoneId: 'z1', type: 'table', active: true },
     {
       id: 't2',
       number: 2,
@@ -55,9 +77,13 @@ export const useMesasStore = defineStore('mesas', () => {
         { id: 'o1', menuItemId: 'm1', name: 'Croquetas de Jamón Ibérico', quantity: 1, price: 8.5, status: 'preparing', category: 'tapas', productionStation: 'KITCHEN' },
         { id: 'o2', menuItemId: 'm7', name: 'Caña de Cerveza', quantity: 2, price: 2.5, status: 'served', category: 'bebidas', productionStation: 'BAR' },
         { id: 'o3', menuItemId: 'm2', name: 'Bravas Aveniq', quantity: 1, price: 6.9, status: 'pending', category: 'tapas', productionStation: 'KITCHEN' }
-      ]
+      ],
+      locationId: 'l1',
+      zoneId: 'z1',
+      type: 'table',
+      active: true
     },
-    { id: 't3', number: 3, capacity: 2, status: 'reserved', x: 15, y: 75, orders: [] },
+    { id: 't3', number: 3, capacity: 2, status: 'reserved', x: 15, y: 75, orders: [], locationId: 'l1', zoneId: 'z1', type: 'table', active: true },
     {
       id: 't4',
       number: 4,
@@ -69,10 +95,14 @@ export const useMesasStore = defineStore('mesas', () => {
         { id: 'o4', menuItemId: 'm4', name: 'Hamburguesa Dry Aged', quantity: 2, price: 14.5, status: 'served', category: 'platos', productionStation: 'KITCHEN' },
         { id: 'o5', menuItemId: 'm8', name: 'Tinto de Verano', quantity: 2, price: 3.2, status: 'served', category: 'bebidas', productionStation: 'BAR' },
         { id: 'o6', menuItemId: 'm10', name: 'Coulant de Chocolate', quantity: 1, price: 5.5, status: 'served', category: 'postres', productionStation: 'KITCHEN' }
-      ]
+      ],
+      locationId: 'l1',
+      zoneId: 'z1',
+      type: 'table',
+      active: true
     },
-    { id: 't5', number: 5, capacity: 4, status: 'free', x: 45, y: 48, orders: [] },
-    { id: 't6', number: 6, capacity: 2, status: 'free', x: 45, y: 78, orders: [] },
+    { id: 't5', number: 5, capacity: 4, status: 'free', x: 45, y: 48, orders: [], locationId: 'l1', zoneId: 'z1', type: 'table', active: true },
+    { id: 't6', number: 6, capacity: 2, status: 'free', x: 45, y: 78, orders: [], locationId: 'l1', zoneId: 'z1', type: 'table', active: true },
     {
       id: 't7',
       number: 7,
@@ -82,13 +112,17 @@ export const useMesasStore = defineStore('mesas', () => {
       y: 15,
       orders: [
         { id: 'o7', menuItemId: 'm9', name: 'Mojito de Fresa', quantity: 1, price: 7.5, status: 'pending', category: 'bebidas', productionStation: 'BAR' }
-      ]
+      ],
+      locationId: 'l1',
+      zoneId: 'z2',
+      type: 'bar',
+      active: true
     },
-    { id: 't8', number: 8, capacity: 1, status: 'free', x: 75, y: 35, orders: [] },
-    { id: 't9', number: 9, capacity: 1, status: 'free', x: 75, y: 55, orders: [] },
-    { id: 't10', number: 10, capacity: 4, status: 'free', x: 92, y: 15, orders: [] },
-    { id: 't11', number: 11, capacity: 4, status: 'free', x: 92, y: 45, orders: [] },
-    { id: 't12', number: 12, capacity: 4, status: 'free', x: 92, y: 75, orders: [] }
+    { id: 't8', number: 8, capacity: 1, status: 'free', x: 75, y: 35, orders: [], locationId: 'l1', zoneId: 'z2', type: 'bar', active: true },
+    { id: 't9', number: 9, capacity: 1, status: 'free', x: 75, y: 55, orders: [], locationId: 'l1', zoneId: 'z2', type: 'bar', active: true },
+    { id: 't10', number: 10, capacity: 4, status: 'free', x: 92, y: 15, orders: [], locationId: 'l1', zoneId: 'z3', type: 'table', active: true },
+    { id: 't11', number: 11, capacity: 4, status: 'free', x: 92, y: 45, orders: [], locationId: 'l1', zoneId: 'z3', type: 'table', active: true },
+    { id: 't12', number: 12, capacity: 4, status: 'free', x: 92, y: 75, orders: [], locationId: 'l1', zoneId: 'z3', type: 'table', active: true }
   ]
 
   const DEFAULT_COMPLETED: CompletedOrder[] = [
@@ -131,6 +165,35 @@ export const useMesasStore = defineStore('mesas', () => {
 
   const tables = ref<Table[]>(loadTables())
   const completedOrders = ref<CompletedOrder[]>(loadCompletedOrders())
+
+  const DEFAULT_SERVICE_ZONES: ServiceZone[] = [
+    {
+      id: 'z1',
+      locationId: 'l1',
+      name: 'Sala interior',
+      type: 'interior',
+      active: true,
+      order: 1
+    },
+    {
+      id: 'z2',
+      locationId: 'l1',
+      name: 'Barra interior',
+      type: 'interior',
+      active: true,
+      order: 2
+    },
+    {
+      id: 'z3',
+      locationId: 'l1',
+      name: 'Terraza exterior',
+      type: 'terrace',
+      active: true,
+      order: 3
+    }
+  ]
+
+  const serviceZones = ref<ServiceZone[]>(DEFAULT_SERVICE_ZONES)
 
   const saveTables = () => {
     try {
@@ -338,6 +401,32 @@ export const useMesasStore = defineStore('mesas', () => {
     return false
   }
 
+  function getServiceZones(locationId?: string): ServiceZone[] {
+    if (!locationId) {
+      return [...serviceZones.value]
+    }
+    return serviceZones.value.filter(z => z.locationId === locationId)
+  }
+
+  function getNormalizedTables(locationId?: string): NormalizedTable[] {
+    return tables.value
+      .map(table => {
+        const isLegacy = !table.locationId || !table.zoneId || !table.type || table.active === undefined
+        return {
+          ...table,
+          resolvedLocationId: table.locationId,
+          resolvedZoneId: table.zoneId || 'legacy',
+          resolvedType: table.type || 'table',
+          resolvedActive: table.active !== undefined ? table.active : true,
+          isLegacy
+        }
+      })
+      .filter(table => {
+        if (!locationId) return true
+        return table.resolvedLocationId === locationId
+      })
+  }
+
   return {
     tables,
     completedOrders,
@@ -347,6 +436,9 @@ export const useMesasStore = defineStore('mesas', () => {
     addItemsToTableOrder,
     updateOrderItemStatus,
     canCheckoutTable,
-    checkoutTable
+    checkoutTable,
+    serviceZones,
+    getServiceZones,
+    getNormalizedTables
   }
 })
