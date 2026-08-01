@@ -54,6 +54,25 @@ export interface NormalizedTable extends Table {
   isLegacy: boolean
 }
 
+export interface MoveTableAccountResult {
+  success: boolean
+  sourceTableId: string
+  targetTableId: string
+  movedOrderItemCount: number
+  reason?:
+    | 'source_not_found'
+    | 'target_not_found'
+    | 'same_table'
+    | 'unknown_location'
+    | 'different_location'
+    | 'source_free'
+    | 'source_not_transferable'
+    | 'target_not_free'
+    | 'target_has_orders'
+    | 'target_reserved'
+    | 'target_inactive'
+}
+
 export interface CompletedOrder {
   id: string
   tableNumber: number
@@ -427,6 +446,90 @@ export const useMesasStore = defineStore('mesas', () => {
       })
   }
 
+  function moveTableAccount(
+    sourceTableId: string,
+    targetTableId: string
+  ): MoveTableAccountResult {
+    const source = tables.value.find(t => t.id === sourceTableId)
+    if (!source) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'source_not_found' }
+    }
+
+    const target = tables.value.find(t => t.id === targetTableId)
+    if (!target) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'target_not_found' }
+    }
+
+    if (sourceTableId === targetTableId) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'same_table' }
+    }
+
+    if (!source.locationId || !target.locationId) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'unknown_location' }
+    }
+
+    if (source.locationId !== target.locationId) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'different_location' }
+    }
+
+    if (source.status === 'free') {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'source_free' }
+    }
+
+    if (source.status !== 'occupied' || source.orders.length === 0) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'source_not_transferable' }
+    }
+
+    if (target.active === false) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'target_inactive' }
+    }
+
+    if (target.status === 'reserved') {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'target_reserved' }
+    }
+
+    if (target.status !== 'free') {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'target_not_free' }
+    }
+
+    if (target.orders && target.orders.length > 0) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'target_has_orders' }
+    }
+
+    const movedOrderItemCount = source.orders.length
+
+    // Atomic update
+    const nextTables: Table[] = tables.value.map(table => {
+      if (table.id === sourceTableId) {
+        return {
+          ...table,
+          status: 'free',
+          orders: [],
+          waiterId: undefined
+        } as Table
+      }
+      if (table.id === targetTableId) {
+        return {
+          ...table,
+          status: 'occupied',
+          orders: [...source.orders],
+          waiterId: source.waiterId
+        } as Table
+      }
+      return table
+    })
+
+    tables.value = nextTables
+    saveTables()
+
+    return {
+      success: true,
+      sourceTableId,
+      targetTableId,
+      movedOrderItemCount
+    }
+  }
+
   return {
     tables,
     completedOrders,
@@ -439,6 +542,7 @@ export const useMesasStore = defineStore('mesas', () => {
     checkoutTable,
     serviceZones,
     getServiceZones,
-    getNormalizedTables
+    getNormalizedTables,
+    moveTableAccount
   }
 })

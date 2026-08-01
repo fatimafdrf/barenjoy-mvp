@@ -288,6 +288,16 @@
                   <i class="pi pi-credit-card"></i>
                   <span>Cobrar Cuenta</span>
                 </button>
+
+                <button
+                  v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog"
+                  type="button"
+                  @click="showMoveAccountModal = true; selectedTargetTableId = null"
+                  class="w-full py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-[#9235DF] hover:border-[#9235DF]/40 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <i class="pi pi-arrow-right-arrow-left"></i>
+                  <span>Mover cuenta</span>
+                </button>
               </div>
 
               <!-- Metadata list -->
@@ -328,19 +338,38 @@
               </div>
 
               <!-- Warning block -->
-              <div v-if="showReleaseWarning" class="bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-xs space-y-2 shrink-0 relative animate-in fade-in duration-200">
+              <div v-if="showReleaseWarning"
+                :class="[
+                  'border rounded-2xl p-4 text-xs space-y-2 shrink-0 relative animate-in fade-in duration-200',
+                  warningType === 'success'
+                    ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                    : 'bg-rose-50 border-rose-100 text-rose-800'
+                ]"
+              >
                 <button
                   type="button"
                   @click="showReleaseWarning = false"
-                  class="absolute top-2.5 right-2.5 text-rose-400 hover:text-rose-700 p-1 cursor-pointer"
+                  :class="[
+                    'absolute top-2.5 right-2.5 p-1 cursor-pointer',
+                    warningType === 'success' ? 'text-emerald-400 hover:text-emerald-700' : 'text-rose-400 hover:text-rose-700'
+                  ]"
                 >
                   <i class="pi pi-times text-[10px]"></i>
                 </button>
                 <div class="flex gap-2">
-                  <i class="pi pi-exclamation-triangle text-rose-500 text-sm mt-0.5 shrink-0"></i>
+                  <i
+                    :class="[
+                      'pi text-sm mt-0.5 shrink-0',
+                      warningType === 'success' ? 'pi-check-circle text-emerald-500' : 'pi-exclamation-triangle text-rose-500'
+                    ]"
+                  ></i>
                   <div class="space-y-1">
-                    <p class="font-bold text-rose-800">Operación Bloqueada</p>
-                    <p class="text-[11px] leading-relaxed text-rose-700">{{ warningMessage }}</p>
+                    <p class="font-bold" :class="warningType === 'success' ? 'text-emerald-800' : 'text-rose-800'">
+                      {{ warningType === 'success' ? 'Operación Completada' : 'Operación Bloqueada' }}
+                    </p>
+                    <p class="text-[11px] leading-relaxed" :class="warningType === 'success' ? 'text-emerald-700' : 'text-rose-700'">
+                      {{ warningMessage }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -440,6 +469,14 @@
                 class="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl"
               >
                 Cobrar
+              </button>
+              <button
+                v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog"
+                type="button"
+                @click="showMoveAccountModal = true; selectedTargetTableId = null"
+                class="px-4 py-2.5 bg-white border border-slate-200 text-[#9235DF] font-bold text-xs rounded-xl"
+              >
+                Mover
               </button>
             </div>
           </div>
@@ -1114,11 +1151,117 @@
       </div>
     </div>
 
+    <!-- MOVE ACCOUNT MODAL (2.8C) -->
+    <div
+      v-if="showMoveAccountModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md px-4"
+    >
+      <div class="bg-white max-w-md w-full p-8 rounded-3xl border border-slate-200 space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <button
+          type="button"
+          @click="showMoveAccountModal = false"
+          class="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+        >
+          <i class="pi pi-times"></i>
+        </button>
+
+        <h3 class="text-xl font-bold text-[#08071A] flex items-center gap-2 font-outfit">
+          <i class="pi pi-arrow-right-arrow-left text-[#9235DF]"></i>
+          <span>Mover cuenta</span>
+        </h3>
+
+        <p class="text-xs text-slate-400">
+          Selecciona el nuevo punto de servicio para mover la cuenta de <span class="font-bold text-slate-700">{{ selectedTableLabel }}</span>. Los pedidos y comandas conservarán su estado actual.
+        </p>
+
+        <!-- Destination selection container -->
+        <div class="max-h-72 overflow-y-auto space-y-4 pr-1">
+          <!-- Non-empty destinations layout -->
+          <template v-if="validDestinations.length > 0">
+            <!-- Active zones -->
+            <div v-for="zone in visibleZones" :key="zone.id" class="space-y-2">
+              <h4 v-if="validDestinations.some(t => t.resolvedZoneId === zone.id)" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {{ zone.name }}
+              </h4>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="targetTable in validDestinations.filter(t => t.resolvedZoneId === zone.id)"
+                  :key="targetTable.id"
+                  type="button"
+                  @click="selectedTargetTableId = targetTable.id"
+                  :class="[
+                    'px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center',
+                    selectedTargetTableId === targetTable.id
+                      ? 'bg-[#9235DF]/10 border-[#9235DF] text-[#9235DF] font-extrabold ring-1 ring-[#9235DF]'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  ]"
+                >
+                  {{ getServicePointLabel(targetTable) }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Legacy (Sin zona) -->
+            <div v-if="validDestinations.some(t => t.resolvedZoneId === 'legacy')" class="space-y-2">
+              <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin zona</h4>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="targetTable in validDestinations.filter(t => t.resolvedZoneId === 'legacy')"
+                  :key="targetTable.id"
+                  type="button"
+                  @click="selectedTargetTableId = targetTable.id"
+                  :class="[
+                    'px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center',
+                    selectedTargetTableId === targetTable.id
+                      ? 'bg-[#9235DF]/10 border-[#9235DF] text-[#9235DF] font-extrabold ring-1 ring-[#9235DF]'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  ]"
+                >
+                  {{ getServicePointLabel(targetTable) }}
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Empty destinations layout -->
+          <div v-else class="text-center py-6 text-slate-400 space-y-1">
+            <i class="pi pi-info-circle text-lg"></i>
+            <p class="text-xs font-medium">No hay puntos de servicio libres disponibles para el traslado.</p>
+          </div>
+        </div>
+
+        <!-- Confirmation preview box -->
+        <div v-if="selectedTargetTableId" class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-xs text-slate-600 space-y-1.5 animate-in fade-in duration-200">
+          <p class="font-bold text-[#08071A]">¿Mover la cuenta de {{ selectedTableLabel }} a {{ getTargetTableLabel(selectedTargetTableId) }}?</p>
+          <p class="text-[11px] text-slate-500">Se trasladarán {{ selectedTable?.orders.length }} productos. Los pedidos y comandas conservarán su estado actual.</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 pt-2">
+          <button
+            type="button"
+            @click="showMoveAccountModal = false; selectedTargetTableId = null"
+            class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            :disabled="!selectedTargetTableId"
+            @click="executeTableMove"
+            class="flex-1 py-2.5 bg-[#9235DF] hover:bg-[#562AAC] text-white font-bold text-xs rounded-xl transition-all cursor-pointer text-center disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Confirmar traslado
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useMesasStore, type Table, type NormalizedTable } from '../stores/mesas'
 import { useCartaStore, type MenuItem } from '../stores/carta'
 import { useLocalesStore } from '../stores/locales'
@@ -1133,6 +1276,18 @@ const showReadyWarningModal = ref(false)
 const activeCategory = ref<string>('all')
 const showReleaseWarning = ref(false)
 const warningMessage = ref('')
+const warningType = ref<'success' | 'error'>('error')
+
+watch(showReleaseWarning, (newVal) => {
+  if (!newVal) {
+    warningType.value = 'error'
+  }
+})
+
+watch(selectedTable, () => {
+  showReleaseWarning.value = false
+  warningType.value = 'error'
+})
 
 // Interactive Ficha Modal states
 const showFichaModal = ref(false)
@@ -1208,7 +1363,8 @@ const isZoneChangeBlocked = computed(() =>
   showCheckoutDialog.value ||
   showFichaModal.value ||
   showModifiersModal.value ||
-  showSendConfirmModal.value
+  showSendConfirmModal.value ||
+  showMoveAccountModal.value
 )
 
 const getServicePointLabel = (table: NormalizedTable) =>
@@ -1235,6 +1391,92 @@ function changeZone(zoneId: string) {
   basket.value = []
   isOrdering.value = false
   activeOrderingTable.value = null
+}
+
+const showMoveAccountModal = ref(false)
+const selectedTargetTableId = ref<string | null>(null)
+
+const validDestinations = computed(() => {
+  if (!selectedTable.value) return []
+  return allNormalizedTables.value.filter(table =>
+    table.id !== selectedTable.value?.id &&
+    table.resolvedLocationId !== undefined &&
+    table.resolvedLocationId === selectedTable.value?.locationId &&
+    table.resolvedActive === true &&
+    table.status === 'free' &&
+    table.orders.length === 0 &&
+    !blockedTableIds.value.includes(table.id)
+  )
+})
+
+const getMoveErrorMsg = (reason?: string) => {
+  switch (reason) {
+    case 'source_not_found': return 'La mesa de origen ya no existe.'
+    case 'target_not_found': return 'La mesa de destino ya no existe.'
+    case 'same_table': return 'Selecciona un destino diferente.'
+    case 'unknown_location': return 'No se puede confirmar que ambas mesas pertenezcan al mismo local.'
+    case 'different_location': return 'No se pueden mover cuentas entre locales distintos.'
+    case 'source_free': return 'La mesa de origen no tiene una cuenta activa.'
+    case 'source_not_transferable': return 'La cuenta de origen ya no puede trasladarse.'
+    case 'target_reserved': return 'La mesa de destino está reservada.'
+    case 'target_not_free': return 'La mesa de destino ya no está libre.'
+    case 'target_has_orders': return 'La mesa destino conserva pedidos y no puede utilizarse.'
+    case 'target_inactive': return 'El punto de servicio está inactivo.'
+    default: return 'Ha ocurrido un error inesperado al mover la cuenta.'
+  }
+}
+
+const executeTableMove = () => {
+  if (!selectedTable.value || !selectedTargetTableId.value) return
+  if (showCheckoutDialog.value) return
+
+  const sourceId = selectedTable.value.id
+  const targetId = selectedTargetTableId.value
+
+  const res = mesasStore.moveTableAccount(sourceId, targetId)
+  if (res.success) {
+    showMoveAccountModal.value = false
+    selectedTargetTableId.value = null
+
+    // Reset current selection
+    selectedTable.value = null
+    basket.value = []
+    isOrdering.value = false
+    activeOrderingTable.value = null
+
+    const targetMesa = mesasStore.tables.find(t => t.id === targetId)
+    if (targetMesa) {
+      const normTarget = allNormalizedTables.value.find(t => t.id === targetId)
+      if (normTarget) {
+        selectedZoneId.value = normTarget.resolvedZoneId
+      }
+      selectedTable.value = targetMesa
+    }
+
+    warningMessage.value = 'La cuenta se ha trasladado correctamente.'
+    warningType.value = 'success'
+    showReleaseWarning.value = true
+  } else {
+    warningMessage.value = getMoveErrorMsg(res.reason)
+    warningType.value = 'error'
+    showReleaseWarning.value = true
+    showMoveAccountModal.value = false
+  }
+}
+
+const selectedTableLabel = computed(() => {
+  if (!selectedTable.value) return ''
+  const norm = allNormalizedTables.value.find(t => t.id === selectedTable.value?.id)
+  return norm ? getServicePointLabel(norm) : `M-${selectedTable.value.number}`
+})
+
+const getTargetTableLabel = (id: string) => {
+  const target = allNormalizedTables.value.find(t => t.id === id)
+  if (!target) return ''
+  const zoneName = target.resolvedZoneId === 'legacy'
+    ? 'Sin zona'
+    : (visibleZones.value.find(z => z.id === target.resolvedZoneId)?.name || '')
+  return `${zoneName} · ${getServicePointLabel(target)}`
 }
 
 const displayCategories = [
