@@ -159,12 +159,18 @@
                             Ok
                           </span>
 
-                          <!-- Accessible Conflict Alerts -->
-                          <div v-if="personalStore.getShiftConflicts(emp.id, weekStart)[shift.id]?.length" class="mt-1">
+                          <!-- Accessible Conflict & Availability Alerts -->
+                          <div v-if="getShiftAlertsUnified(emp.id, shift.id).hasAlerts" class="mt-1">
                             <button
-                              @click.stop="showConflictAlert(personalStore.getShiftConflicts(emp.id, weekStart)[shift.id])"
-                              class="px-1.5 py-0.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded text-[8px] font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-500"
-                              :aria-label="`Ver alertas de conflicto: ${personalStore.getShiftConflicts(emp.id, weekStart)[shift.id].join(', ')}`"
+                              @click.stop="showConflictAlert(getShiftAlertsUnified(emp.id, shift.id).messages)"
+                              :class="['px-1.5 py-0.5 border rounded text-[8px] font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-1',
+                                getShiftAlertsUnified(emp.id, shift.id).severity === 'critical'
+                                  ? 'text-rose-600 hover:text-rose-800 bg-rose-50 border-rose-100 hover:bg-rose-100 focus:ring-rose-500'
+                                  : getShiftAlertsUnified(emp.id, shift.id).severity === 'warning'
+                                    ? 'text-amber-600 hover:text-amber-800 bg-amber-50 border-amber-100 hover:bg-amber-100 focus:ring-amber-500'
+                                    : 'text-indigo-600 hover:text-indigo-800 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 focus:ring-indigo-500'
+                              ]"
+                              :aria-label="`Ver alertas de conflicto: ${getShiftAlertsUnified(emp.id, shift.id).messages.join(', ')}`"
                               tabindex="0"
                             >
                               <i class="pi pi-exclamation-triangle text-[8px]"></i>
@@ -460,11 +466,11 @@
         <form @submit.prevent="submitIncident" class="space-y-4 text-xs">
           <div class="space-y-1">
             <label class="font-bold text-slate-400 uppercase tracking-wider block">Empleado</label>
-            <select v-model="incForm.name" required class="w-full bg-slate-50 border border-slate-250 rounded-xl p-3 focus:outline-none">
+            <select v-model="incForm.employeeId" @change="onEmployeeSelectChange" required class="w-full bg-slate-50 border border-slate-250 rounded-xl p-3 focus:outline-none">
               <option
                 v-for="emp in personalStore.employees"
                 :key="emp.id"
-                :value="emp.name"
+                :value="emp.id"
               >
                 {{ emp.name }}
               </option>
@@ -541,6 +547,7 @@ const shiftForm = ref({
 })
 
 const incForm = ref({
+  employeeId: '',
   name: '',
   type: 'vacaciones' as const,
   date: '',
@@ -676,10 +683,39 @@ const submitShiftAssignment = () => {
   }
 }
 
+const getShiftAlertsUnified = (employeeId: string, shiftId: string) => {
+  const list24A = personalStore.getShiftConflicts(employeeId, weekStart.value)[shiftId] || []
+  const list24B = personalStore.getShiftAvailabilityAlerts(employeeId, weekStart.value)[shiftId] || []
+  const hasAlerts = list24A.length > 0 || list24B.length > 0
+
+  let severity: 'critical' | 'warning' | 'info' = 'info'
+  if (list24A.length > 0 || list24B.some(a => a.severity === 'critical')) {
+    severity = 'critical'
+  } else if (list24B.some(a => a.severity === 'warning')) {
+    severity = 'warning'
+  }
+
+  const messages = [
+    ...list24A,
+    ...list24B.map(a => a.message)
+  ]
+
+  return { hasAlerts, severity, messages }
+}
+
+const onEmployeeSelectChange = () => {
+  const emp = personalStore.employees.find(e => e.id === incForm.value.employeeId)
+  if (emp) {
+    incForm.value.name = emp.name
+  }
+}
+
 const openNewIncidentModal = () => {
   const todayStr = new Date().toISOString().split('T')[0]
+  const firstEmp = personalStore.employees[0]
   incForm.value = {
-    name: personalStore.employees[0]?.name || '',
+    employeeId: firstEmp?.id || '',
+    name: firstEmp?.name || '',
     type: 'vacaciones',
     date: todayStr,
     details: ''
@@ -689,9 +725,12 @@ const openNewIncidentModal = () => {
 
 const submitIncident = () => {
   personalStore.addIncident({
+    employeeId: incForm.value.employeeId,
     employeeName: incForm.value.name,
     type: incForm.value.type,
     date: incForm.value.date,
+    startDate: incForm.value.date,
+    endDate: incForm.value.date,
     details: incForm.value.details
   })
   showIncidentModal.value = false

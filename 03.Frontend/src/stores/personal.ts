@@ -39,8 +39,22 @@ export interface Shift {
   day?: WeekDay
   shiftType?: ShiftType
 }
-
 export type ShiftConflictMap = Record<string, readonly string[]>
+
+export type ShiftAlertSeverity = 'critical' | 'warning' | 'info'
+
+export interface ShiftAlert {
+  code:
+    | 'approved_vacation'
+    | 'approved_absence'
+    | 'pending_request'
+    | 'outside_availability'
+    | 'unstructured_availability'
+  severity: ShiftAlertSeverity
+  message: string
+}
+
+export type ShiftAlertMap = Record<string, readonly ShiftAlert[]>
 
 export type UpdateShiftInput =
   | {
@@ -632,6 +646,196 @@ export const usePersonalStore = defineStore('personal', () => {
     return conflictsMap
   }
 
+  function getIncidentRange(inc: PersonalIncident): { startEpoch: number; endEpoch: number; isValid: boolean } {
+    const startStr = inc.startDate || inc.date
+    const endStr = inc.endDate || inc.startDate || inc.date
+    if (!startStr || !endStr) {
+      return { startEpoch: NaN, endEpoch: NaN, isValid: false }
+    }
+    const startEpoch = getEpochDay(startStr)
+    const endEpoch = getEpochDay(endStr)
+    if (isNaN(startEpoch) || isNaN(endEpoch) || endEpoch < startEpoch) {
+      return { startEpoch: NaN, endEpoch: NaN, isValid: false }
+    }
+    return { startEpoch, endEpoch, isValid: true }
+  }
+
+  function getShiftAvailabilityAlerts(employeeId: string, weekStart: string): ShiftAlertMap {
+    const lEpoch = getEpochDay(weekStart)
+    if (isNaN(lEpoch)) return {}
+    const rEpoch = lEpoch + 6
+
+    const emp = employees.value.find(e => e.id === employeeId)
+    if (!emp) return {}
+
+    const empIncidents = incidents.value.filter(inc => {
+      if (inc.employeeId) {
+        return inc.employeeId === employeeId
+      }
+      // Fallback by name only if exact single match exists
+      const matches = employees.value.filter(e => e.name === inc.employeeName)
+      if (matches.length === 1) {
+        return matches[0].id === employeeId
+      }
+      return false
+    })
+
+    const alertsMap: Record<string, ShiftAlert[]> = {}
+
+    const empShifts = shifts.value.filter(s => {
+      if (s.employeeId !== employeeId) return false
+      const epoch = getEpochDay(s.date)
+      return !isNaN(epoch) && epoch >= lEpoch && epoch <= rEpoch
+    })
+
+    const days = ['Jueves', 'Viernes', 'Sábado', 'Domingo', 'Lunes', 'Martes', 'Miércoles']
+    const getDayName = (ep: number) => days[((ep % 7) + 7) % 7] as WeekDay
+
+    empShifts.forEach(s => {
+      const epochDay = getEpochDay(s.date)
+      const turnStart = epochDay * 1440 + timeToMinutes(s.startTime)
+
+      const interval = getAbsoluteInterval(s.date, s.startTime, s.endTime)
+      if (!interval.isValid) return
+
+      const turnEnd = interval.endAbs
+      const alerts: ShiftAlert[] = []
+
+      // 1. Vacaciones y Ausencias Aprobadas / Pendientes
+      empIncidents.forEach(inc => {
+        if (inc.type === 'cambio') return
+        const range = getIncidentRange(inc)
+        if (!range.isValid) return
+
+        // Turn crosses midnight? Check both epochDay and epochDay + 1
+        const affected = (epochDay >= range.startEpoch && epochDay <= range.endEpoch) ||
+                         (turnEnd > (epochDay + 1) * 1440 && (epochDay + 1) >= range.startEpoch && (epochDay + 1) <= range.endEpoch)
+
+        if (affected) {
+          if (inc.status === 'aprobado') {
+            if (inc.type === 'vacaciones') {
+              alerts.push({
+                code: 'approved_vacation',
+                severity: 'critical',
+                message: 'Vacaciones aprobadas'
+              })
+            } else if (inc.type === 'ausencia') {
+              alerts.push({
+                code: 'approved_absence',
+                severity: 'critical',
+                message: 'Ausencia aprobada'
+              })
+            }
+          } else if (inc.status === 'pendiente') {
+            if (inc.type === 'vacaciones') {
+              alerts.push({
+                code: 'pending_request',
+                severity: 'info',
+                message: 'Solicitud de vacaciones pendiente'
+              })
+            } else if (inc.type === 'ausencia') {
+              alerts.push({
+                code: 'pending_request',
+                severity: 'info',
+                message: 'Solicitud de ausencia pendiente'
+              })
+            }
+          }
+        }
+      })
+
+      // 2. Disponibilidad
+      const avail = emp.availability
+      if (typeof avail === 'string') {
+        if (avail !== 'Completa') {
+          alerts.push({
+            code: 'unstructured_availability',
+            severity: 'info',
+            message: 'Disponibilidad no estructurada'
+          })
+        }
+      } else if (Array.isArray(avail)) {
+        const dayName = getDayName(epochDay)
+        const dayAvail = avail.find(a => a.day === dayName)
+
+        if (!dayAvail || !dayAvail.slots || dayAvail.slots.length === 0) {
+          alerts.push({
+            code: 'outside_availability',
+            severity: 'warning',
+            message: 'Fuera de disponibilidad'
+          })
+        } else {
+          // Check turn containment
+          const turnCrossesMidnight = Math.floor(turnStart / 1440) !== Math.floor(turnEnd / 1440)
+          let isContained = false
+
+          if (!turnCrossesMidnight) {
+            isContained = dayAvail.slots.some(slot => {
+              const sMin = timeToMinutes(slot.start)
+              const eMin = timeToMinutes(slot.end)
+              if (isNaN(sMin) || isNaN(eMin) || sMin === eMin) return false
+              const slotStart = epochDay * 1440 + sMin
+              const slotEnd = (eMin < sMin) ? (epochDay + 1) * 1440 + eMin : epochDay * 1440 + eMin
+              return turnStart >= slotStart && turnEnd <= slotEnd
+            })
+          } else {
+            const containedInSingleNocturnalSlot = dayAvail.slots.some(slot => {
+              const sMin = timeToMinutes(slot.start)
+              const eMin = timeToMinutes(slot.end)
+              if (isNaN(sMin) || isNaN(eMin) || sMin === eMin) return false
+              if (sMin > eMin) {
+                const slotStart = epochDay * 1440 + sMin
+                const slotEnd = (epochDay + 1) * 1440 + eMin
+                return turnStart >= slotStart && turnEnd <= slotEnd
+              }
+              return false
+            })
+            if (containedInSingleNocturnalSlot) {
+              isContained = true
+            } else {
+              const mid = (epochDay + 1) * 1440
+              const part1Contained = dayAvail.slots.some(slot => {
+                const sMin = timeToMinutes(slot.start)
+                const eMin = timeToMinutes(slot.end)
+                if (isNaN(sMin) || isNaN(eMin) || sMin === eMin) return false
+                const slotStart = epochDay * 1440 + sMin
+                const slotEnd = (eMin < sMin) ? (epochDay + 1) * 1440 + eMin : epochDay * 1440 + eMin
+                return turnStart >= slotStart && mid <= slotEnd
+              })
+
+              const dayName2 = getDayName(epochDay + 1)
+              const dayAvail2 = avail.find(a => a.day === dayName2)
+              const part2Contained = dayAvail2 && dayAvail2.slots && dayAvail2.slots.length > 0 && dayAvail2.slots.some(slot => {
+                const sMin = timeToMinutes(slot.start)
+                const eMin = timeToMinutes(slot.end)
+                if (isNaN(sMin) || isNaN(eMin) || sMin === eMin) return false
+                const slotStart = (epochDay + 1) * 1440 + sMin
+                const slotEnd = (eMin < sMin) ? (epochDay + 2) * 1440 + eMin : (epochDay + 1) * 1440 + eMin
+                return mid >= slotStart && turnEnd <= slotEnd
+              })
+
+              isContained = !!(part1Contained && part2Contained)
+            }
+          }
+
+          if (!isContained) {
+            alerts.push({
+              code: 'outside_availability',
+              severity: 'warning',
+              message: 'Horario fuera de disponibilidad'
+            })
+          }
+        }
+      }
+
+      if (alerts.length > 0) {
+        alertsMap[s.id] = alerts
+      }
+    })
+
+    return alertsMap
+  }
+
   const resolveIncident = (incidentId: string, status: PersonalIncident['status']) => {
     const inc = incidents.value.find(i => i.id === incidentId)
     if (inc) {
@@ -662,6 +866,7 @@ export const usePersonalStore = defineStore('personal', () => {
     addIncident,
     getWeekdayDate,
     getPlannedMinutes,
-    getShiftConflicts
+    getShiftConflicts,
+    getShiftAvailabilityAlerts
   }
 })
