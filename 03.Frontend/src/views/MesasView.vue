@@ -60,6 +60,69 @@
             </button>
           </div>
 
+          <!-- ZONES NAVIGATION BAR -->
+          <div class="flex gap-2 overflow-x-auto whitespace-nowrap pb-2 select-none border-b border-slate-50">
+            <button
+              type="button"
+              :aria-pressed="selectedZoneId === 'all'"
+              aria-label="Ver todas las zonas de mesas"
+              :disabled="isZoneChangeBlocked"
+              @click="changeZone('all')"
+              class="px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9235DF] disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="[
+                selectedZoneId === 'all'
+                  ? 'bg-[#9235DF] border-[#9235DF] text-white font-extrabold shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <span>Todas</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="selectedZoneId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'">
+                {{ allVisibleLocationTables.length }}
+              </span>
+            </button>
+
+            <button
+              v-for="zone in visibleZones"
+              :key="zone.id"
+              type="button"
+              :aria-pressed="selectedZoneId === zone.id"
+              :aria-label="`Filtrar por zona ${zone.name}`"
+              :disabled="isZoneChangeBlocked"
+              @click="changeZone(zone.id)"
+              class="px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9235DF] disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="[
+                selectedZoneId === zone.id
+                  ? 'bg-[#9235DF] border-[#9235DF] text-white font-extrabold shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <span>{{ zone.name }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="selectedZoneId === zone.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'">
+                {{ currentLocationTables.filter(t => t.resolvedZoneId === zone.id).length }}
+              </span>
+            </button>
+
+            <button
+              v-if="legacyTables.length > 0"
+              type="button"
+              :aria-pressed="selectedZoneId === 'legacy'"
+              aria-label="Filtrar por mesas sin zona"
+              :disabled="isZoneChangeBlocked"
+              @click="changeZone('legacy')"
+              class="px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9235DF] disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="[
+                selectedZoneId === 'legacy'
+                  ? 'bg-[#9235DF] border-[#9235DF] text-white font-extrabold shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <span>Sin zona</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="selectedZoneId === 'legacy' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'">
+                {{ legacyTables.length }}
+              </span>
+            </button>
+          </div>
+
           <!-- FLOOR MAP CANVAS -->
           <div class="flex-1 min-h-[500px] w-full bg-[#FBFBFC] border border-slate-100 rounded-3xl relative p-6 overflow-hidden">
             <div class="absolute inset-0 bg-[linear-gradient(to_right,#f1f5f9_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f9_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
@@ -72,11 +135,17 @@
             <div class="absolute top-4 left-[38%] text-[9px] text-slate-400 font-black uppercase tracking-widest z-10">Barra & Café</div>
             <div class="absolute top-4 left-[71%] text-[9px] text-slate-400 font-black uppercase tracking-widest z-10">Terraza Aveniq</div>
 
+            <!-- Empty state when no tables configurations are present -->
+            <div v-if="visibleTables.length === 0" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-slate-50/50">
+              <i class="pi pi-info-circle text-slate-400 text-2xl mb-2"></i>
+              <p class="text-xs text-slate-500 font-semibold">No hay mesas o posiciones configuradas en esta zona.</p>
+            </div>
+
             <button
-              v-for="table in mesasStore.tables"
+              v-for="table in visibleTables"
               :key="table.id"
-              @click="selectTable(table)"
-              @dblclick="openFichaModal(table)"
+              @click="selectNormalizedTable(table)"
+              @dblclick="openFichaModalNormalized(table)"
               :draggable="isDesignMode"
               @dragstart="handleDragStart($event, table.id)"
               @dragover.prevent
@@ -115,7 +184,7 @@
                 </span>
 
                 <!-- Table label -->
-                <span class="text-xs font-black text-slate-900 leading-none">M-{{ table.number }}</span>
+                <span class="text-xs font-black text-slate-900 leading-none">{{ getServicePointLabel(table) }}</span>
                 <!-- Table capacity metadata -->
                 <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                   {{ table.capacity }} pax
@@ -1050,10 +1119,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useMesasStore, type Table } from '../stores/mesas'
+import { useMesasStore, type Table, type NormalizedTable } from '../stores/mesas'
 import { useCartaStore, type MenuItem } from '../stores/carta'
+import { useLocalesStore } from '../stores/locales'
 
 const mesasStore = useMesasStore()
+const localesStore = useLocalesStore()
 const cartaStore = useCartaStore()
 
 const selectedTable = ref<Table | null>(null)
@@ -1086,6 +1157,85 @@ const customModifierNote = ref('')
 
 // Send Confirmation Dialog States
 const showSendConfirmModal = ref(false)
+
+const selectedZoneId = ref<string>('all')
+
+const allNormalizedTables = computed(() =>
+  mesasStore.getNormalizedTables()
+)
+
+const currentLocationTables = computed(() =>
+  allNormalizedTables.value.filter(table =>
+    table.resolvedLocationId === localesStore.activeLocaleId
+  )
+)
+
+const legacyTables = computed(() =>
+  allNormalizedTables.value.filter(table =>
+    table.resolvedLocationId === undefined ||
+    table.resolvedZoneId === 'legacy'
+  )
+)
+
+const allVisibleLocationTables = computed(() => [
+  ...currentLocationTables.value,
+  ...legacyTables.value.filter(
+    legacy =>
+      !currentLocationTables.value.some(table => table.id === legacy.id)
+  )
+])
+
+const visibleZones = computed(() =>
+  [...mesasStore.getServiceZones(localesStore.activeLocaleId)]
+    .sort((a, b) => a.order - b.order)
+)
+
+const visibleTables = computed(() => {
+  if (selectedZoneId.value === 'all') {
+    return allVisibleLocationTables.value
+  }
+
+  if (selectedZoneId.value === 'legacy') {
+    return legacyTables.value
+  }
+
+  return currentLocationTables.value.filter(
+    table => table.resolvedZoneId === selectedZoneId.value
+  )
+})
+
+const isZoneChangeBlocked = computed(() =>
+  showCheckoutDialog.value ||
+  showFichaModal.value ||
+  showModifiersModal.value ||
+  showSendConfirmModal.value
+)
+
+const getServicePointLabel = (table: NormalizedTable) =>
+  table.resolvedType === 'bar'
+    ? `Barra ${table.number}`
+    : `M-${table.number}`
+
+const selectNormalizedTable = (table: NormalizedTable) => {
+  const realTable = mesasStore.tables.find(item => item.id === table.id)
+  if (!realTable) return
+  selectTable(realTable)
+}
+
+const openFichaModalNormalized = (table: NormalizedTable) => {
+  const realTable = mesasStore.tables.find(item => item.id === table.id)
+  if (!realTable) return
+  openFichaModal(realTable)
+}
+
+function changeZone(zoneId: string) {
+  if (isZoneChangeBlocked.value) return
+  selectedZoneId.value = zoneId
+  selectedTable.value = null
+  basket.value = []
+  isOrdering.value = false
+  activeOrderingTable.value = null
+}
 
 const displayCategories = [
   { id: 'favoritos', name: 'Favoritos', icon: 'pi-star' },
