@@ -30,6 +30,22 @@ export interface ServiceZone {
   order: number
 }
 
+export type PaymentMethod = 'cash' | 'card'
+
+export interface PartialPayment {
+  id: string
+  amountCents: number
+  method: PaymentMethod
+  createdAt: string
+}
+
+export interface CompletedPayment {
+  id: string
+  amountCents: number
+  method: PaymentMethod
+  createdAt: string
+}
+
 export interface Table {
   id: string
   number: number
@@ -44,6 +60,8 @@ export interface Table {
   zoneId?: string
   type?: 'table' | 'bar'
   active?: boolean
+  // Campo opcional Evolución 2.9A
+  partialPayments?: PartialPayment[]
 }
 
 export interface NormalizedTable extends Table {
@@ -71,6 +89,7 @@ export interface MoveTableAccountResult {
     | 'target_has_orders'
     | 'target_reserved'
     | 'target_inactive'
+    | 'source_has_partial_payments'
 }
 
 export interface CompletedOrder {
@@ -80,6 +99,24 @@ export interface CompletedOrder {
   total: number
   paymentMethod: 'card' | 'cash' | 'bizum'
   timestamp: string // HH:MM
+  payments?: CompletedPayment[]
+  isMixedPayment?: boolean
+}
+
+export interface CheckoutPaymentResult {
+  success: boolean
+  tableId: string
+  paymentId?: string
+  paidAmountCents: number
+  remainingAmountCents: number
+  isFullyPaid: boolean
+  reason?:
+    | 'table_not_found'
+    | 'table_has_no_orders'
+    | 'invalid_amount'
+    | 'amount_exceeds_remaining'
+    | 'invalid_payment_method'
+    | 'already_paid'
 }
 
 export const useMesasStore = defineStore('mesas', () => {
@@ -365,6 +402,177 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
+  function getTableTotalCents(tableId: string): number {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return 0
+    return table.orders.reduce((sum, item) => {
+      const priceCents = Math.round(item.price * 100)
+      return sum + (priceCents * item.quantity)
+    }, 0)
+  }
+
+  function getTablePaidCents(tableId: string): number {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table || !table.partialPayments) return 0
+    return table.partialPayments.reduce((sum, payment) => sum + payment.amountCents, 0)
+  }
+
+  function getTableRemainingCents(tableId: string): number {
+    const total = getTableTotalCents(tableId)
+    const paid = getTablePaidCents(tableId)
+    const remaining = total - paid
+    return remaining < 0 ? 0 : remaining
+  }
+
+  function registerTablePayment(input: {
+    tableId: string
+    amountCents: number
+    method: PaymentMethod
+  }): CheckoutPaymentResult {
+    const { tableId, amountCents, method } = input
+
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) {
+      return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_not_found' }
+    }
+
+    if (!table.orders || table.orders.length === 0) {
+      return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_has_no_orders' }
+    }
+
+    if (method !== 'cash' && method !== 'card') {
+      return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_payment_method' }
+    }
+
+    if (!Number.isInteger(amountCents) || amountCents <= 0) {
+      return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_amount' }
+    }
+
+    const totalCents = getTableTotalCents(tableId)
+    const paidCentsBefore = getTablePaidCents(tableId)
+    const remainingCentsBefore = getTableRemainingCents(tableId)
+
+    if (remainingCentsBefore === 0) {
+      return { success: false, tableId, paidAmountCents: paidCentsBefore, remainingAmountCents: 0, isFullyPaid: true, reason: 'already_paid' }
+    }
+
+    if (amountCents > remainingCentsBefore) {
+      return { success: false, tableId, paidAmountCents: paidCentsBefore, remainingAmountCents: remainingCentsBefore, isFullyPaid: false, reason: 'amount_exceeds_remaining' }
+    }
+
+    const isFullyPaid = (amountCents === remainingCentsBefore)
+    const newPaidCents = paidCentsBefore + amountCents
+    const newRemainingCents = remainingCentsBefore - amountCents
+    const paymentId = 'pay-' + Math.random().toString(36).substr(2, 9)
+
+    if (!isFullyPaid) {
+      const newPayment: PartialPayment = {
+        id: paymentId,
+        amountCents,
+        method,
+        createdAt: new Date().toISOString()
+      }
+
+      const nextTables: Table[] = tables.value.map(t => {
+        if (t.id === tableId) {
+          const currentPayments = t.partialPayments ? [...t.partialPayments] : []
+          return {
+            ...t,
+            status: 'bill',
+            partialPayments: [...currentPayments, newPayment]
+          } as Table
+        }
+        return t
+      })
+
+      tables.value = nextTables
+      saveTables()
+
+      return {
+        success: true,
+        tableId,
+        paymentId,
+        paidAmountCents: newPaidCents,
+        remainingAmountCents: newRemainingCents,
+        isFullyPaid: false
+      }
+    } else {
+      const currentPayments = table.partialPayments ? [...table.partialPayments] : []
+      const finalPayment: CompletedPayment = {
+        id: paymentId,
+        amountCents,
+        method,
+        createdAt: new Date().toISOString()
+      }
+      const allPayments: CompletedPayment[] = [...currentPayments, finalPayment]
+
+      const isMixedPayment = allPayments.length > 1
+      const hasCard = allPayments.some(p => p.method === 'card')
+      const paymentMethodLegacy: 'card' | 'cash' | 'bizum' = hasCard ? 'card' : 'cash'
+
+      const now = new Date()
+      const timestamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      const itemsCount = table.orders.reduce((sum, item) => sum + item.quantity, 0)
+      const totalInEuros = totalCents / 100
+
+      completedOrders.value.push({
+        id: 'c-' + Math.random().toString(36).substr(2, 9),
+        tableNumber: table.number,
+        itemsCount,
+        total: totalInEuros,
+        paymentMethod: paymentMethodLegacy,
+        timestamp,
+        payments: allPayments,
+        isMixedPayment
+      })
+      saveCompletedOrders()
+
+      const inventarioStore = useInventarioStore()
+      table.orders.forEach(item => {
+        inventarioStore.addMovement({
+          user: 'Caja POS',
+          type: 'salida',
+          productName: item.name,
+          quantity: -item.quantity,
+          reason: `Venta Caja POS - Mesa ${table.number}`
+        })
+      })
+
+      const reservasStore = useReservasStore()
+      const crmStore = useCrmStore()
+      const activeRes = reservasStore.reservations.find(r => r.tableId === table.id && r.status === 'seated')
+      if (activeRes) {
+        crmStore.addVisit(activeRes.clientName, totalInEuros, table.number)
+        activeRes.status = 'finished'
+      }
+
+      const nextTables: Table[] = tables.value.map(t => {
+        if (t.id === tableId) {
+          return {
+            ...t,
+            status: 'free',
+            orders: [],
+            waiterId: undefined,
+            partialPayments: []
+          } as Table
+        }
+        return t
+      })
+
+      tables.value = nextTables
+      saveTables()
+
+      return {
+        success: true,
+        tableId,
+        paymentId,
+        paidAmountCents: newPaidCents,
+        remainingAmountCents: newRemainingCents,
+        isFullyPaid: true
+      }
+    }
+  }
+
   const checkoutTable = (id: string, paymentMethod: 'card' | 'cash' | 'bizum'): boolean => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
@@ -373,49 +581,13 @@ export const useMesasStore = defineStore('mesas', () => {
         return false
       }
 
-      const total = table.orders.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const itemsCount = table.orders.reduce((sum, item) => sum + item.quantity, 0)
-
-      if (total > 0) {
-        const now = new Date()
-        const timestamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-
-        completedOrders.value.push({
-          id: 'c-' + Math.random().toString(36).substr(2, 9),
-          tableNumber: table.number,
-          itemsCount,
-          total,
-          paymentMethod,
-          timestamp
-        })
-        saveCompletedOrders()
-
-        // Sincronizar automáticamente con Reservas y CRM
-        const reservasStore = useReservasStore()
-        const crmStore = useCrmStore()
-        const activeRes = reservasStore.reservations.find(r => r.tableId === table.id && r.status === 'seated')
-        if (activeRes) {
-          crmStore.addVisit(activeRes.clientName, total, table.number)
-          activeRes.status = 'finished'
-        }
-
-        // Registrar movimientos de salida por venta comercial en el Almacén/ERP
-        const inventarioStore = useInventarioStore()
-        table.orders.forEach(item => {
-          inventarioStore.addMovement({
-            user: 'Caja POS',
-            type: 'salida',
-            productName: item.name,
-            quantity: -item.quantity,
-            reason: `Venta Caja POS - Mesa ${table.number}`
-          })
-        })
-      }
-
-      table.status = 'free'
-      table.orders = []
-      saveTables()
-      return true
+      const method: PaymentMethod = paymentMethod === 'cash' ? 'cash' : 'card'
+      const res = registerTablePayment({
+        tableId: id,
+        amountCents: getTableRemainingCents(id),
+        method
+      })
+      return res.success
     }
     return false
   }
@@ -470,6 +642,10 @@ export const useMesasStore = defineStore('mesas', () => {
 
     if (source.locationId !== target.locationId) {
       return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'different_location' }
+    }
+
+    if (source.partialPayments && source.partialPayments.length > 0) {
+      return { success: false, sourceTableId, targetTableId, movedOrderItemCount: 0, reason: 'source_has_partial_payments' }
     }
 
     if (source.status === 'free') {
@@ -543,6 +719,10 @@ export const useMesasStore = defineStore('mesas', () => {
     serviceZones,
     getServiceZones,
     getNormalizedTables,
-    moveTableAccount
+    moveTableAccount,
+    registerTablePayment,
+    getTableTotalCents,
+    getTablePaidCents,
+    getTableRemainingCents
   }
 })

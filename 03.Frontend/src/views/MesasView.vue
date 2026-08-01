@@ -268,13 +268,23 @@
                   </span>
                 </div>
                 <p class="text-xs text-slate-400 font-medium">Panel de servicio activo.</p>
+                <div v-if="hasPartialPayments" class="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold space-y-1">
+                  <div class="flex items-center gap-1.5">
+                    <i class="pi pi-exclamation-triangle"></i>
+                    <span>Modificaciones bloqueadas</span>
+                  </div>
+                  <p class="text-[10px] text-amber-600/90 font-medium leading-relaxed">
+                    La cuenta tiene pagos parciales y ya no puede modificarse.
+                  </p>
+                </div>
               </div>
 
               <!-- Primary action: enter dedicated ordering flow -->
               <div class="grid grid-cols-1 gap-2 border-b border-slate-50 pb-4">
                 <button
+                  :disabled="hasPartialPayments"
                   @click="startOrdering"
-                  class="w-full py-2.5 bg-[#9235DF] hover:bg-[#562AAC] text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#9235DF]/10"
+                  class="w-full py-2.5 bg-[#9235DF] hover:bg-[#562AAC] text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#9235DF]/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <i class="pi pi-plus"></i>
                   <span>Añadir Comanda</span>
@@ -290,7 +300,7 @@
                 </button>
 
                 <button
-                  v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog"
+                  v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog && !hasPartialPayments"
                   type="button"
                   @click="showMoveAccountModal = true; selectedTargetTableId = null"
                   class="w-full py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-[#9235DF] hover:border-[#9235DF]/40 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
@@ -438,6 +448,15 @@
               <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 Zona: {{ getTableMetadata(selectedTable).zone }} • Camarero: {{ getTableMetadata(selectedTable).waiter }}
               </p>
+              <div v-if="hasPartialPayments" class="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold space-y-1">
+                <div class="flex items-center gap-1.5">
+                  <i class="pi pi-exclamation-triangle"></i>
+                  <span>Modificaciones bloqueadas</span>
+                </div>
+                <p class="text-[10px] text-amber-600/90 font-medium leading-relaxed">
+                  La cuenta tiene pagos parciales y ya no puede modificarse.
+                </p>
+              </div>
             </div>
             <select
               v-model="selectedTable.status"
@@ -458,8 +477,9 @@
             </div>
             <div class="flex gap-2">
               <button
+                :disabled="hasPartialPayments"
                 @click="startOrdering"
-                class="px-4 py-2.5 bg-[#9235DF] text-white font-black text-xs rounded-xl shadow-md"
+                class="px-4 py-2.5 bg-[#9235DF] text-white font-black text-xs rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 + Comanda
               </button>
@@ -471,7 +491,7 @@
                 Cobrar
               </button>
               <button
-                v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog"
+                v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog && !hasPartialPayments"
                 type="button"
                 @click="showMoveAccountModal = true; selectedTargetTableId = null"
                 class="px-4 py-2.5 bg-white border border-slate-200 text-[#9235DF] font-bold text-xs rounded-xl"
@@ -1110,43 +1130,117 @@
           <i class="pi pi-credit-card text-[#9235DF]"></i>
           <span>Cobro de Cuenta</span>
         </h3>
-        <p class="text-xs text-slate-400">Seleccione el método de pago para finalizar el servicio de la Mesa {{ selectedTable?.number }}.</p>
+        <p class="text-xs text-slate-400">Servicio de la Mesa {{ selectedTable?.number }}.</p>
 
+        <!-- Summary panel showing Total, Paid, and Remaining -->
         <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-2">
-          <div class="flex justify-between font-bold border-b border-slate-200 pb-2 text-[#08071A]">
-            <span>Descripción</span>
-            <span>Total</span>
+          <div class="flex justify-between font-medium text-slate-500">
+            <span>Total Facturado:</span>
+            <span class="font-bold text-[#08071A]">{{ selectedTable ? (mesasStore.getTableTotalCents(selectedTable.id) / 100).toFixed(2) : '0.00' }} €</span>
           </div>
-          <div v-for="item in selectedTable?.orders" :key="item.id" class="flex justify-between text-slate-500 font-medium">
-            <span>{{ item.name }} x{{ item.quantity }}</span>
-            <span>{{ (item.price * item.quantity).toFixed(2) }} €</span>
+          <div class="flex justify-between font-medium text-slate-500">
+            <span>Total Pagado:</span>
+            <span class="font-bold text-emerald-600">{{ selectedTable ? (mesasStore.getTablePaidCents(selectedTable.id) / 100).toFixed(2) : '0.00' }} €</span>
           </div>
           <div class="flex justify-between font-black text-sm text-[#08071A] pt-2 border-t border-slate-200">
-            <span>Total Facturado</span>
-            <span class="text-[#9235DF]">{{ orderTotal.toFixed(2) }} €</span>
+            <span>Importe Pendiente:</span>
+            <span class="text-[#9235DF]">{{ selectedTable ? (mesasStore.getTableRemainingCents(selectedTable.id) / 100).toFixed(2) : '0.00' }} €</span>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 pt-2">
-          <button
-            @click="handlePayment('card')"
-            class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-          >
-            <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
-              <i class="pi pi-credit-card text-lg"></i>
+        <!-- History of partial payments registered if any -->
+        <div v-if="selectedTable?.partialPayments && selectedTable.partialPayments.length > 0" class="space-y-2">
+          <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Historial de Abonos</span>
+          <div class="max-h-24 overflow-y-auto space-y-1.5 pr-1">
+            <div
+              v-for="p in selectedTable.partialPayments"
+              :key="p.id"
+              class="flex justify-between items-center text-[11px] bg-slate-50 border border-slate-100 p-2 rounded-xl"
+            >
+              <div class="flex items-center gap-1.5 text-slate-600">
+                <i :class="p.method === 'cash' ? 'pi pi-wallet text-emerald-500' : 'pi pi-credit-card text-indigo-500'"></i>
+                <span class="font-bold uppercase text-[9px]">{{ p.method === 'cash' ? 'Efectivo' : 'Tarjeta' }}</span>
+              </div>
+              <span class="font-black text-slate-700">{{ (p.amountCents / 100).toFixed(2) }} €</span>
             </div>
-            <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta de Crédito</span>
-          </button>
+          </div>
+        </div>
 
+        <!-- Tab toggles for complete vs partial payment mode -->
+        <div class="flex bg-slate-100 p-1 rounded-xl">
           <button
-            @click="handlePayment('cash')"
-            class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+            type="button"
+            @click="isPartialMode = false; paymentAmountInput = ''; paymentAmountInputError = ''"
+            :class="['flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all', !isPartialMode ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
           >
-            <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-              <i class="pi pi-wallet text-lg"></i>
-            </div>
-            <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
+            Pagar Completo
           </button>
+          <button
+            type="button"
+            @click="isPartialMode = true; paymentAmountInput = ''; paymentAmountInputError = ''"
+            :class="['flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all', isPartialMode ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+          >
+            Registrar Pago Parcial
+          </button>
+        </div>
+
+        <!-- Mode content -->
+        <div v-if="!isPartialMode" class="space-y-4">
+          <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
+          <div class="grid grid-cols-2 gap-4">
+            <button
+              @click="handleDirectPayment('card')"
+              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+            >
+              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                <i class="pi pi-credit-card"></i>
+              </div>
+              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
+            </button>
+            <button
+              @click="handleDirectPayment('cash')"
+              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+            >
+              <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                <i class="pi pi-wallet"></i>
+              </div>
+              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Importe a Pagar (€)</label>
+            <input
+              type="text"
+              v-model="paymentAmountInput"
+              placeholder="Ej: 20.50"
+              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+            />
+            <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <button
+              @click="handleCustomPayment('card')"
+              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+            >
+              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                <i class="pi pi-credit-card"></i>
+              </div>
+              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar con Tarjeta</span>
+            </button>
+            <button
+              @click="handleCustomPayment('cash')"
+              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+            >
+              <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                <i class="pi pi-wallet"></i>
+              </div>
+              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar en Efectivo</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1278,6 +1372,15 @@ const showReleaseWarning = ref(false)
 const warningMessage = ref('')
 const warningType = ref<'success' | 'error'>('error')
 
+const hasPartialPayments = computed(() => {
+  if (!selectedTable.value) return false
+  return (selectedTable.value.partialPayments?.length ?? 0) > 0
+})
+
+const isPartialMode = ref(false)
+const paymentAmountInput = ref('')
+const paymentAmountInputError = ref('')
+
 watch(showReleaseWarning, (newVal) => {
   if (!newVal) {
     warningType.value = 'error'
@@ -1287,6 +1390,9 @@ watch(showReleaseWarning, (newVal) => {
 watch(selectedTable, () => {
   showReleaseWarning.value = false
   warningType.value = 'error'
+  isPartialMode.value = false
+  paymentAmountInput.value = ''
+  paymentAmountInputError.value = ''
 })
 
 // Interactive Ficha Modal states
@@ -1422,6 +1528,13 @@ const getMoveErrorMsg = (reason?: string) => {
     case 'target_not_free': return 'La mesa de destino ya no está libre.'
     case 'target_has_orders': return 'La mesa destino conserva pedidos y no puede utilizarse.'
     case 'target_inactive': return 'El punto de servicio está inactivo.'
+    case 'source_has_partial_payments': return 'La mesa de origen ya tiene pagos parciales registrados y no puede moverse.'
+    case 'table_not_found': return 'La mesa especificada no existe.'
+    case 'table_has_no_orders': return 'La mesa no tiene ningún pedido activo.'
+    case 'invalid_amount': return 'El importe especificado no es válido.'
+    case 'amount_exceeds_remaining': return 'El importe especificado supera el pendiente de la cuenta.'
+    case 'invalid_payment_method': return 'El método de pago seleccionado no es válido.'
+    case 'already_paid': return 'La cuenta de esta mesa ya ha sido saldada.'
     default: return 'Ha ocurrido un error inesperado al mover la cuenta.'
   }
 }
@@ -1965,6 +2078,7 @@ const tryCheckout = () => {
 
   if (hasUnfinished) {
     warningMessage.value = 'No puedes cobrar esta mesa porque todavía hay productos pendientes o en preparación.'
+    warningType.value = 'error'
     showReleaseWarning.value = true
     return
   }
@@ -1974,26 +2088,108 @@ const tryCheckout = () => {
     return
   }
 
+  isPartialMode.value = false
+  paymentAmountInput.value = ''
+  paymentAmountInputError.value = ''
   showCheckoutDialog.value = true
 }
 
 const proceedToCheckout = () => {
   showReadyWarningModal.value = false
+  isPartialMode.value = false
+  paymentAmountInput.value = ''
+  paymentAmountInputError.value = ''
   showCheckoutDialog.value = true
 }
 
-const handlePayment = (method: 'card' | 'cash') => {
+const parseAmountInput = (val: string): { cents: number; error?: string } => {
+  const cleanVal = val.trim()
+  if (!cleanVal) {
+    return { cents: 0, error: 'Por favor, introduce un importe.' }
+  }
+  const regex = /^\d+(?:[.,]\d{1,2})?$/
+  if (!regex.test(cleanVal)) {
+    return { cents: 0, error: 'Formato inválido. Ejemplo: 20.50 o 20,50' }
+  }
+
+  const parts = cleanVal.split(/[.,]/)
+  const euros = parseInt(parts[0], 10)
+  const cents = parts[1] ? parseInt(parts[1].padEnd(2, '0').slice(0, 2), 10) : 0
+  const totalCents = euros * 100 + cents
+
+  if (totalCents <= 0) {
+    return { cents: 0, error: 'El importe debe ser mayor que cero.' }
+  }
+
   if (selectedTable.value) {
-    const success = mesasStore.checkoutTable(selectedTable.value.id, method)
-    if (success) {
+    const remainingCents = mesasStore.getTableRemainingCents(selectedTable.value.id)
+    if (totalCents > remainingCents) {
+      return { cents: 0, error: `El importe no puede superar el pendiente (${(remainingCents / 100).toFixed(2)} €).` }
+    }
+  }
+
+  return { cents: totalCents }
+}
+
+const handleDirectPayment = (method: 'card' | 'cash') => {
+  if (!selectedTable.value) return
+  const remainingCents = mesasStore.getTableRemainingCents(selectedTable.value.id)
+  const res = mesasStore.registerTablePayment({
+    tableId: selectedTable.value.id,
+    amountCents: remainingCents,
+    method
+  })
+
+  if (res.success) {
+    showCheckoutDialog.value = false
+    isPartialMode.value = false
+    paymentAmountInput.value = ''
+    paymentAmountInputError.value = ''
+    selectedTable.value = null
+    showReleaseWarning.value = false
+  } else {
+    warningMessage.value = getMoveErrorMsg(res.reason)
+    warningType.value = 'error'
+    showReleaseWarning.value = true
+    showCheckoutDialog.value = false
+  }
+}
+
+const handleCustomPayment = (method: 'card' | 'cash') => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+
+  const parseRes = parseAmountInput(paymentAmountInput.value)
+  if (parseRes.error) {
+    paymentAmountInputError.value = parseRes.error
+    return
+  }
+
+  const amountCents = parseRes.cents
+  const res = mesasStore.registerTablePayment({
+    tableId: selectedTable.value.id,
+    amountCents,
+    method
+  })
+
+  if (res.success) {
+    if (res.isFullyPaid) {
       showCheckoutDialog.value = false
+      isPartialMode.value = false
+      paymentAmountInput.value = ''
+      paymentAmountInputError.value = ''
       selectedTable.value = null
       showReleaseWarning.value = false
     } else {
-      showCheckoutDialog.value = false
-      warningMessage.value = 'No puedes cobrar esta mesa porque todavía hay productos pendientes o en preparación.'
-      showReleaseWarning.value = true
+      paymentAmountInput.value = ''
+      paymentAmountInputError.value = ''
+      const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+      if (updated) {
+        selectedTable.value = updated
+      }
     }
+  } else {
+    paymentAmountInputError.value = getMoveErrorMsg(res.reason)
   }
 }
 
