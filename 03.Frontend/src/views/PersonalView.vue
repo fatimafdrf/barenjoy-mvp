@@ -85,6 +85,34 @@
             <div>
               <h3 class="text-sm font-black text-[#08071A] uppercase tracking-wider">Planificador Semanal de Turnos</h3>
               <p class="text-xs text-slate-450 mt-0.5 font-medium">Asigne de forma rápida el cuadrante de turnos del personal.</p>
+
+              <!-- Cost Summary Block (Evolución 2.5) -->
+              <div class="mt-3 p-3 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col gap-1 max-w-sm sm:max-w-md">
+                <div class="flex items-center gap-2">
+                  <span class="px-1.5 py-0.5 rounded bg-[#9235DF]/10 text-[#9235DF] text-[8px] font-black uppercase tracking-wider">
+                    Estimación operativa
+                  </span>
+                  <span v-if="!weeklyCost.isComplete" class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[8px] font-black uppercase tracking-wider">
+                    Estimación parcial
+                  </span>
+                </div>
+                <div class="text-xs font-black text-slate-800 mt-1">
+                  <span v-if="weeklyCost.isComplete">
+                    Coste estimado del cuadrante: {{ formatCurrency(weeklyCost.amount) }}
+                  </span>
+                  <span v-else>
+                    Coste estimado calculado: {{ formatCurrency(weeklyCost.amount) }}
+                  </span>
+                </div>
+                <div class="text-[9px] text-slate-400 font-medium leading-normal">
+                  <span v-if="weeklyCost.isComplete">
+                    Estimación basada en todos los turnos planificados · No vinculante
+                  </span>
+                  <span v-else>
+                    Estimación parcial · Faltan datos de referencia
+                  </span>
+                </div>
+              </div>
             </div>
             <!-- Actions & Status -->
             <div class="flex items-center gap-3.5">
@@ -734,5 +762,19 @@ const submitIncident = () => {
     details: incForm.value.details
   })
   showIncidentModal.value = false
+}
+
+// Limitación: La visualización está situada en el flujo de Administrador, pero el MVP todavía no dispone de autorización IAM real.
+const weeklyCost = computed(() => {
+  return personalStore.getWeeklyWorkforceCost(weekStart.value)
+})
+
+const currencyFormatter = new Intl.NumberFormat('es-ES', {
+  style: 'currency',
+  currency: 'EUR'
+})
+
+const formatCurrency = (val: number) => {
+  return currencyFormatter.format(val)
 }
 </script>

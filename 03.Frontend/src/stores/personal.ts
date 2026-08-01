@@ -56,6 +56,13 @@ export interface ShiftAlert {
 
 export type ShiftAlertMap = Record<string, readonly ShiftAlert[]>
 
+export interface PlannedCostResult {
+  amount: number
+  currency: 'EUR'
+  isComplete: boolean
+  excludedEmployeeIds: readonly string[]
+}
+
 export type UpdateShiftInput =
   | {
       mode: 'legacy'
@@ -851,6 +858,32 @@ export const usePersonalStore = defineStore('personal', () => {
     })
   }
 
+  function getWeeklyWorkforceCost(weekStart: string): PlannedCostResult {
+    let totalAmount = 0
+    let isComplete = true
+    const excludedEmployeeIds: string[] = []
+
+    employees.value.forEach(emp => {
+      const minutes = getPlannedMinutes(emp.id, weekStart)
+      if (minutes <= 0) return
+
+      const costPerHour = emp.hourlyCost
+      if (costPerHour === undefined || costPerHour === null || isNaN(costPerHour) || costPerHour < 0) {
+        isComplete = false
+        excludedEmployeeIds.push(emp.id)
+      } else {
+        totalAmount += (minutes / 60) * costPerHour
+      }
+    })
+
+    return {
+      amount: totalAmount,
+      currency: 'EUR',
+      isComplete,
+      excludedEmployeeIds
+    }
+  }
+
   return {
     employees,
     shifts,
@@ -867,6 +900,7 @@ export const usePersonalStore = defineStore('personal', () => {
     getWeekdayDate,
     getPlannedMinutes,
     getShiftConflicts,
-    getShiftAvailabilityAlerts
+    getShiftAvailabilityAlerts,
+    getWeeklyWorkforceCost
   }
 })
