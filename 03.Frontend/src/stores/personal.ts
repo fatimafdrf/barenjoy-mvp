@@ -38,6 +38,21 @@ export interface Shift {
   shiftType?: ShiftType
 }
 
+export type UpdateShiftInput =
+  | {
+      mode: 'legacy'
+      employeeId: string
+      day: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'
+      shiftType: ShiftType
+    }
+  | {
+      mode: 'dated'
+      employeeId: string
+      date: string
+      startTime: string
+      endTime: string
+    }
+
 export interface ClockBreak {
   start: string // HH:MM
   end?: string // HH:MM
@@ -276,21 +291,21 @@ export const usePersonalStore = defineStore('personal', () => {
     employeeId: string,
     day: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo',
     type: ShiftType
-  ): void;
+  ): boolean;
   function assignShift(
     employeeId: string,
     date: string,
     startTime: string,
     endTime: string,
     locationId?: string
-  ): void;
+  ): boolean;
   function assignShift(
     employeeId: string,
     dateOrDay: string,
     startTimeOrType: string,
     endTime?: string,
     locationId = 'loc1'
-  ): void {
+  ): boolean {
     if (endTime === undefined) {
       // Legacy signature
       const day = dateOrDay as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'
@@ -300,7 +315,7 @@ export const usePersonalStore = defineStore('personal', () => {
       const validTypes = ['mañana', 'comida', 'tarde', 'cena', 'noche']
       if (!validDays.includes(day) || !validTypes.includes(type)) {
         console.warn(`Intento de asignación de turno inválido: día ${day}, tipo ${type}`)
-        return
+        return false
       }
 
       let startTime = '09:00'
@@ -327,7 +342,7 @@ export const usePersonalStore = defineStore('personal', () => {
       )
       if (hasDuplicate) {
         console.warn(`Intento de asignación de turno duplicado (legacy): ${employeeId} el ${day} de ${startTime} a ${endTimeVal}`)
-        return
+        return false
       }
 
       shifts.value.push({
@@ -341,13 +356,14 @@ export const usePersonalStore = defineStore('personal', () => {
         day,
         shiftType: type
       })
+      return true
     } else {
       // Fechado signature
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/
       const timeRegex = /^\d{2}:\d{2}$/
       if (!dateRegex.test(dateOrDay) || !timeRegex.test(startTimeOrType) || !timeRegex.test(endTime)) {
         console.warn(`Intento de asignación de turno fechado inválido: fecha ${dateOrDay}, horas ${startTimeOrType}-${endTime}`)
-        return
+        return false
       }
 
       const hasDuplicate = shifts.value.some(s =>
@@ -358,7 +374,7 @@ export const usePersonalStore = defineStore('personal', () => {
       )
       if (hasDuplicate) {
         console.warn(`Intento de asignación de turno duplicado (fechado): ${employeeId} el ${dateOrDay} de ${startTimeOrType} a ${endTime}`)
-        return
+        return false
       }
 
       shifts.value.push({
@@ -370,7 +386,74 @@ export const usePersonalStore = defineStore('personal', () => {
         endTime,
         status: 'draft'
       })
+      return true
     }
+  }
+
+  function updateShift(id: string, input: UpdateShiftInput): boolean {
+    const shift = shifts.value.find(s => s.id === id)
+    if (!shift) return false
+
+    // Ensure compatible mode (no legacy <-> dated silent transformations)
+    const isExistingLegacy = shift.day !== undefined
+    if (isExistingLegacy && input.mode !== 'legacy') return false
+    if (!isExistingLegacy && input.mode !== 'dated') return false
+
+    if (input.mode === 'legacy') {
+      let startTime = '09:00'
+      let endTimeVal = '17:00'
+      if (input.shiftType === 'cena') {
+        startTime = '17:00'
+        endTimeVal = '01:00'
+      } else if (input.shiftType === 'tarde') {
+        startTime = '14:00'
+        endTimeVal = '22:00'
+      } else if (input.shiftType === 'mañana') {
+        startTime = '06:00'
+        endTimeVal = '14:00'
+      } else if (input.shiftType === 'noche') {
+        startTime = '22:00'
+        endTimeVal = '06:00'
+      }
+
+      const hasDuplicate = shifts.value.some(s =>
+        s.id !== id &&
+        s.employeeId === input.employeeId &&
+        s.day === input.day &&
+        s.startTime === startTime &&
+        s.endTime === endTimeVal
+      )
+      if (hasDuplicate) return false
+
+      shift.employeeId = input.employeeId
+      shift.day = input.day
+      shift.shiftType = input.shiftType
+      shift.startTime = startTime
+      shift.endTime = endTimeVal
+    } else {
+      const hasDuplicate = shifts.value.some(s =>
+        s.id !== id &&
+        s.employeeId === input.employeeId &&
+        s.date === input.date &&
+        s.startTime === input.startTime &&
+        s.endTime === input.endTime
+      )
+      if (hasDuplicate) return false
+
+      shift.employeeId = input.employeeId
+      shift.date = input.date
+      shift.startTime = input.startTime
+      shift.endTime = input.endTime
+    }
+
+    shifts.value = [...shifts.value]
+    return true
+  }
+
+  function deleteShift(id: string): boolean {
+    const originalLength = shifts.value.length
+    shifts.value = shifts.value.filter(s => s.id !== id)
+    return shifts.value.length < originalLength
   }
 
   const resolveIncident = (incidentId: string, status: PersonalIncident['status']) => {
@@ -397,6 +480,8 @@ export const usePersonalStore = defineStore('personal', () => {
     clockOut,
     toggleBreak,
     assignShift,
+    updateShift,
+    deleteShift,
     resolveIncident,
     addIncident
   }

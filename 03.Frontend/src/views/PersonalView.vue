@@ -129,7 +129,7 @@
                       <!-- Render all assigned shifts -->
                       <div v-for="shift in getShiftsForEmployeeAndDay(emp.id, day)" :key="shift.id" class="relative group">
                         <!-- Shift Card -->
-                        <div :class="['p-2.5 rounded-2xl border text-[10px] shadow-sm flex flex-col items-center justify-center gap-1 min-h-[56px]',
+                        <div :class="['p-2.5 rounded-2xl border text-[10px] shadow-sm flex flex-col items-center justify-center gap-1 min-h-[56px] relative',
                           shift.status === 'draft'
                             ? 'bg-amber-50/40 border-dashed border-amber-300 text-amber-900'
                             : 'bg-white border-slate-200 text-slate-800']">
@@ -138,9 +138,30 @@
                           <span v-if="shift.status === 'draft'" class="px-1 py-0.5 rounded bg-amber-100 text-[8px] font-black uppercase tracking-wider">
                             Borrador
                           </span>
+                          <span v-else-if="shift.status === 'review'" class="px-1 py-0.5 rounded bg-indigo-50 text-[8px] font-black uppercase tracking-wider text-indigo-700">
+                            Revisión
+                          </span>
                           <span v-else class="px-1 py-0.5 rounded bg-emerald-50 text-[8px] font-black uppercase tracking-wider text-emerald-700">
                             Ok
                           </span>
+
+                          <!-- Action buttons (always visible with flex row spacing) -->
+                          <div class="flex items-center gap-2 mt-1.5 border-t border-slate-100 pt-1.5 w-full justify-center">
+                            <button
+                              @click.stop="openEditShiftModal(shift)"
+                              class="p-1 text-slate-400 hover:text-[#9235DF] active:text-[#9235DF] transition-colors cursor-pointer"
+                              title="Editar"
+                            >
+                              <i class="pi pi-pencil text-[9px]"></i>
+                            </button>
+                            <button
+                              @click.stop="confirmDeleteShift(shift)"
+                              class="p-1 text-slate-400 hover:text-rose-600 active:text-rose-600 transition-colors cursor-pointer"
+                              title="Eliminar"
+                            >
+                              <i class="pi pi-trash text-[9px]"></i>
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -331,15 +352,20 @@
     >
       <div class="bg-white max-w-sm w-full p-8 rounded-3xl border border-slate-200 space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
         <button
-          @click="showShiftModal = false"
+          @click="closeShiftModal"
           class="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
         >
           <i class="pi pi-times"></i>
         </button>
 
         <div>
-          <h3 class="text-xl font-bold text-[#08071A] font-outfit">Planificar Turno</h3>
-          <p class="text-xs text-slate-400 mt-1">Asigne un cuadrante horario para el {{ activeDay }}.</p>
+          <h3 class="text-xl font-bold text-[#08071A] font-outfit">{{ isEditing ? 'Editar Turno' : 'Planificar Turno' }}</h3>
+          <p class="text-xs text-slate-400 mt-1">Configure el cuadrante horario para el {{ activeDay }}.</p>
+        </div>
+
+        <!-- Error message block -->
+        <div v-if="modalErrorMessage" class="text-rose-500 font-bold text-center text-[10px] bg-rose-50 p-2.5 rounded-xl border border-rose-100">
+          {{ modalErrorMessage }}
         </div>
 
         <form @submit.prevent="submitShiftAssignment" class="space-y-4 text-xs">
@@ -370,7 +396,7 @@
           <div class="pt-4 flex gap-3">
             <button
               type="button"
-              @click="showShiftModal = false"
+              @click="closeShiftModal"
               class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold rounded-xl transition-all cursor-pointer text-center"
             >
               Cancelar
@@ -476,6 +502,10 @@ const showShiftModal = ref(false)
 const showIncidentModal = ref(false)
 const activeDay = ref<'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo'>('Lunes')
 
+const isEditing = ref(false)
+const editingShiftId = ref<string | null>(null)
+const modalErrorMessage = ref<string | null>(null)
+
 const shiftForm = ref({
   employeeId: 'emp1',
   type: 'comida' as ShiftType
@@ -535,18 +565,48 @@ const getProductivityRatio = (emp: any): string => {
 }
 
 const getShiftsForEmployeeAndDay = (employeeId: string, day: string) => {
-  return personalStore.shifts
-    .filter(s => s.employeeId === employeeId && s.day === day)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+  const filtered = personalStore.shifts.filter(s => s.employeeId === employeeId && s.day === day)
+  return [...filtered].sort((a, b) => a.startTime.localeCompare(b.startTime))
 }
 
 const openQuickShiftAssignForEmployee = (employeeId: string, day: typeof activeDay.value) => {
+  isEditing.value = false
+  editingShiftId.value = null
+  modalErrorMessage.value = null
   activeDay.value = day
   shiftForm.value = {
     employeeId,
     type: 'comida'
   }
   showShiftModal.value = true
+}
+
+const openEditShiftModal = (shift: any) => {
+  isEditing.value = true
+  editingShiftId.value = shift.id
+  modalErrorMessage.value = null
+  activeDay.value = shift.day || 'Lunes'
+  shiftForm.value = {
+    employeeId: shift.employeeId,
+    type: shift.shiftType || 'comida'
+  }
+  showShiftModal.value = true
+}
+
+const closeShiftModal = () => {
+  isEditing.value = false
+  editingShiftId.value = null
+  modalErrorMessage.value = null
+  showShiftModal.value = false
+}
+
+const confirmDeleteShift = (shift: any) => {
+  const emp = personalStore.employees.find(e => e.id === shift.employeeId)
+  const empName = emp ? emp.name : shift.employeeId
+  const label = `¿Estás seguro de que deseas eliminar este turno?\n\nColaborador: ${empName}\nDía: ${shift.day || shift.date}\nTurno: ${shift.shiftType || `${shift.startTime}-${shift.endTime}`}\n\nSe eliminará únicamente este turno.`
+  if (window.confirm(label)) {
+    personalStore.deleteShift(shift.id)
+  }
 }
 
 const hasDraftShifts = computed(() => {
@@ -563,8 +623,23 @@ const publishAllDrafts = () => {
 }
 
 const submitShiftAssignment = () => {
-  personalStore.assignShift(shiftForm.value.employeeId, activeDay.value, shiftForm.value.type)
-  showShiftModal.value = false
+  let success = false
+  if (isEditing.value && editingShiftId.value) {
+    success = personalStore.updateShift(editingShiftId.value, {
+      mode: 'legacy',
+      employeeId: shiftForm.value.employeeId,
+      day: activeDay.value,
+      shiftType: shiftForm.value.type
+    })
+  } else {
+    success = personalStore.assignShift(shiftForm.value.employeeId, activeDay.value, shiftForm.value.type)
+  }
+
+  if (success) {
+    closeShiftModal()
+  } else {
+    modalErrorMessage.value = 'El turno ya existe para este colaborador en el mismo horario.'
+  }
 }
 
 const openNewIncidentModal = () => {
