@@ -71,6 +71,21 @@ export interface AssignCalendarShiftInput {
   shiftType: ShiftType
 }
 
+export interface CopyWeekResult {
+  success: boolean
+  copiedCount: number
+  sourceWeekStart: string
+  targetWeekStart: string
+  reason?:
+    | 'invalid_source'
+    | 'invalid_target'
+    | 'same_week'
+    | 'target_in_past'
+    | 'target_not_empty'
+    | 'no_source_shifts'
+    | 'invalid_source_shift'
+}
+
 export type UpdateShiftInput =
   | {
       mode: 'legacy'
@@ -990,6 +1005,156 @@ export const usePersonalStore = defineStore('personal', () => {
     }
   }
 
+  function copyWeekSchedule(
+    sourceWeekStart: string,
+    targetWeekStart: string,
+    currentWeekStart: string
+  ): CopyWeekResult {
+    // 1. Validaciones generales de fechas
+    const sourceEpoch = getEpochDay(sourceWeekStart)
+    const targetEpoch = getEpochDay(targetWeekStart)
+    const currentEpoch = getEpochDay(currentWeekStart)
+
+    if (isNaN(sourceEpoch)) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source' }
+    }
+    if (isNaN(targetEpoch)) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_target' }
+    }
+    if (isNaN(currentEpoch)) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_target' }
+    }
+
+    // 2. Confirmar que no son la misma semana
+    if (sourceWeekStart === targetWeekStart) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'same_week' }
+    }
+
+    // 3. Confirmar que origen y destino son lunes válidos
+    const isMonday = (epoch: number) => {
+      const mod = ((epoch - 4) % 7 + 7) % 7
+      return mod === 0
+    }
+    if (!isMonday(sourceEpoch)) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source' }
+    }
+    if (!isMonday(targetEpoch)) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_target' }
+    }
+
+    // 4. Confirmar que el destino no está en el pasado
+    if (targetEpoch < currentEpoch) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'target_in_past' }
+    }
+
+    // 5. Confirmar que el destino está vacío
+    const targetEndEpoch = targetEpoch + 6
+    const hasShiftsInTarget = shifts.value.some(s => {
+      const ep = getEpochDay(s.date)
+      return !isNaN(ep) && ep >= targetEpoch && ep <= targetEndEpoch
+    })
+    if (hasShiftsInTarget) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'target_not_empty' }
+    }
+
+    // 6. Obtener los turnos del origen
+    const sourceEndEpoch = sourceEpoch + 6
+    const sourceShifts = shifts.value.filter(s => {
+      const ep = getEpochDay(s.date)
+      return !isNaN(ep) && ep >= sourceEpoch && ep <= sourceEndEpoch
+    })
+
+    // 7. Confirmar que el origen contiene turnos
+    if (sourceShifts.length === 0) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'no_source_shifts' }
+    }
+
+    // 8. Validar todos los turnos de origen y preparar los nuevos objetos en memoria (Fase A)
+    const offset = targetEpoch - sourceEpoch
+    if (offset % 7 !== 0) {
+      return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_target' }
+    }
+
+    const newShifts: Shift[] = []
+    const preparedIds = new Set<string>()
+
+    for (const s of sourceShifts) {
+      // Validar empleado existente
+      const emp = employees.value.find(e => e.id === s.employeeId)
+      if (!emp) {
+        return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source_shift' }
+      }
+
+      // Validar localización
+      if (!s.locationId || !emp.allowedLocations.includes(s.locationId)) {
+        return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source_shift' }
+      }
+
+      // Validar fecha del turno
+      if (!isValidDate(s.date)) {
+        return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source_shift' }
+      }
+
+      // Validar horas del turno
+      const tStart = timeToMinutes(s.startTime)
+      const tEnd = timeToMinutes(s.endTime)
+      if (isNaN(tStart) || isNaN(tEnd) || tStart === tEnd) {
+        return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source_shift' }
+      }
+
+      // Desplazar fecha
+      const targetDate = addDays(s.date, offset)
+      if (!targetDate) {
+        return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source_shift' }
+      }
+
+      // Validar que la fecha destino pertenece al destino
+      const targetDateEpoch = getEpochDay(targetDate)
+      if (isNaN(targetDateEpoch) || targetDateEpoch < targetEpoch || targetDateEpoch > targetEndEpoch) {
+        return { success: false, copiedCount: 0, sourceWeekStart, targetWeekStart, reason: 'invalid_source_shift' }
+      }
+
+      // Derivar day a partir de la fecha destino
+      const dayOffset = targetDateEpoch - targetEpoch
+      const days: WeekDay[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+      const derivedDay = days[dayOffset]
+
+      // Generar nuevo ID único defensivo
+      let newId = ''
+      let attempts = 0
+      while (attempts < 100) {
+        newId = 'sh-' + Math.random().toString(36).substr(2, 9)
+        if (!shifts.value.some(existing => existing.id === newId) && !preparedIds.has(newId)) {
+          break
+        }
+        attempts++
+      }
+      preparedIds.add(newId)
+
+      newShifts.push({
+        id: newId,
+        employeeId: s.employeeId,
+        locationId: s.locationId,
+        date: targetDate,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        status: 'draft',
+        day: derivedDay,
+        shiftType: s.shiftType
+      })
+    }
+
+    // 9. Inserción atómica (Fase B)
+    shifts.value = [...shifts.value, ...newShifts]
+
+    return {
+      success: true,
+      copiedCount: newShifts.length,
+      sourceWeekStart,
+      targetWeekStart
+    }
+  }
+
   return {
     employees,
     shifts,
@@ -1011,6 +1176,9 @@ export const usePersonalStore = defineStore('personal', () => {
     assignCalendarShift,
     addDays,
     epochDayToDateString,
-    getEpochDay
+    getEpochDay,
+    copyWeekSchedule,
+    isValidDate,
+    timeToMinutes
   }
 })

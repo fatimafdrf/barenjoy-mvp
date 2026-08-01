@@ -189,6 +189,15 @@
                 }}
               </span>
               <button
+                type="button"
+                :disabled="isCopyDisabled"
+                :title="copyDisabledReasonText"
+                @click="confirmAndCopyWeek"
+                class="px-4 py-2 bg-slate-50 hover:bg-slate-100 disabled:bg-slate-50 border border-slate-200 text-slate-750 disabled:opacity-40 disabled:hover:bg-slate-50 disabled:cursor-not-allowed rounded-xl cursor-pointer text-[10px] font-black uppercase tracking-wider transition-colors shadow-sm"
+              >
+                Copiar semana anterior
+              </button>
+              <button
                 v-if="hasDraftShifts"
                 @click="publishAllDrafts"
                 class="px-4 py-2 bg-[#9235DF] hover:bg-[#562AAC] text-white rounded-xl cursor-pointer text-[10px] font-black uppercase tracking-wider transition-colors shadow-sm"
@@ -731,6 +740,128 @@ const publishAllDrafts = () => {
     }
   })
   personalStore.shifts = [...personalStore.shifts]
+}
+
+const isCopyDisabled = computed(() => {
+  if (getWeekRelation.value === 'past') {
+    return true
+  }
+  if (activeWeekShifts.value.length > 0) {
+    return true
+  }
+  const sourceWeekStart = personalStore.addDays(weekStart.value, -7)
+  if (!sourceWeekStart) return true
+  const sourceEpoch = personalStore.getEpochDay(sourceWeekStart)
+  const sourceEndEpoch = sourceEpoch + 6
+
+  const sourceShifts = personalStore.shifts.filter(s => {
+    const ep = personalStore.getEpochDay(s.date)
+    return !isNaN(ep) && ep >= sourceEpoch && ep <= sourceEndEpoch
+  })
+
+  if (sourceShifts.length === 0) {
+    return true
+  }
+
+  const hasInvalid = sourceShifts.some(s => {
+    const emp = personalStore.employees.find(e => e.id === s.employeeId)
+    if (!emp) return true
+    if (!s.locationId || !emp.allowedLocations.includes(s.locationId)) return true
+    if (!personalStore.isValidDate(s.date)) return true
+    const tStart = personalStore.timeToMinutes(s.startTime)
+    const tEnd = personalStore.timeToMinutes(s.endTime)
+    if (isNaN(tStart) || isNaN(tEnd) || tStart === tEnd) return true
+    return false
+  })
+  if (hasInvalid) {
+    return true
+  }
+
+  return false
+})
+
+const copyDisabledReasonText = computed(() => {
+  if (getWeekRelation.value === 'past') {
+    return 'No se permite copiar planificación a semanas pasadas.'
+  }
+  if (activeWeekShifts.value.length > 0) {
+    return 'La semana destino ya contiene planificación.'
+  }
+
+  const sourceWeekStart = personalStore.addDays(weekStart.value, -7)
+  if (!sourceWeekStart) return 'Semana anterior no válida.'
+  const sourceEpoch = personalStore.getEpochDay(sourceWeekStart)
+  const sourceEndEpoch = sourceEpoch + 6
+
+  const sourceShifts = personalStore.shifts.filter(s => {
+    const ep = personalStore.getEpochDay(s.date)
+    return !isNaN(ep) && ep >= sourceEpoch && ep <= sourceEndEpoch
+  })
+
+  if (sourceShifts.length === 0) {
+    return 'No hay turnos planificados en la semana anterior para copiar.'
+  }
+
+  const hasInvalid = sourceShifts.some(s => {
+    const emp = personalStore.employees.find(e => e.id === s.employeeId)
+    if (!emp) return true
+    if (!s.locationId || !emp.allowedLocations.includes(s.locationId)) return true
+    if (!personalStore.isValidDate(s.date)) return true
+    const tStart = personalStore.timeToMinutes(s.startTime)
+    const tEnd = personalStore.timeToMinutes(s.endTime)
+    if (isNaN(tStart) || isNaN(tEnd) || tStart === tEnd) return true
+    return false
+  })
+  if (hasInvalid) {
+    return 'La semana anterior contiene turnos con datos inválidos.'
+  }
+
+  return 'Copiar planificación de la semana anterior.'
+})
+
+const confirmAndCopyWeek = () => {
+  if (isCopyDisabled.value) return
+
+  const sourceWeekStart = personalStore.addDays(weekStart.value, -7)
+  if (!sourceWeekStart) {
+    window.alert('Error al resolver la semana origen.')
+    return
+  }
+
+  const sourceEpoch = personalStore.getEpochDay(sourceWeekStart)
+  const sourceEndEpoch = sourceEpoch + 6
+  const sourceShifts = personalStore.shifts.filter(s => {
+    const ep = personalStore.getEpochDay(s.date)
+    return !isNaN(ep) && ep >= sourceEpoch && ep <= sourceEndEpoch
+  })
+
+  const shiftCount = sourceShifts.length
+  if (shiftCount === 0) {
+    window.alert('No hay turnos planificados en la semana anterior para copiar.')
+    return
+  }
+
+  const label = `Se copiarán ${shiftCount} turnos de la semana anterior.\n\nLos nuevos turnos se crearán como borrador.\n\n¿Deseas continuar?`
+  if (!window.confirm(label)) {
+    return
+  }
+
+  const res = personalStore.copyWeekSchedule(sourceWeekStart, weekStart.value, currentWeekStart)
+  if (res.success) {
+    window.alert(`Se han copiado ${res.copiedCount} turnos como borrador.`)
+  } else {
+    if (res.reason === 'target_not_empty') {
+      window.alert('La semana destino ya contiene planificación.')
+    } else if (res.reason === 'target_in_past') {
+      window.alert('No se permite copiar planificación a semanas pasadas.')
+    } else if (res.reason === 'no_source_shifts') {
+      window.alert('No hay turnos planificados en la semana anterior para copiar.')
+    } else if (res.reason === 'invalid_source_shift') {
+      window.alert('La semana anterior contiene turnos con datos inválidos.')
+    } else {
+      window.alert('No se ha podido completar la copia. Revisa el estado de las semanas.')
+    }
+  }
 }
 
 const shiftForm = ref({
