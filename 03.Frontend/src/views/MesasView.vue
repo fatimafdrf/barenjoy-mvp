@@ -268,13 +268,13 @@
                   </span>
                 </div>
                 <p class="text-xs text-slate-400 font-medium">Panel de servicio activo.</p>
-                <div v-if="hasPartialPayments" class="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold space-y-1">
+                <div v-if="hasPartialPayments || hasActiveSplit" class="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold space-y-1">
                   <div class="flex items-center gap-1.5">
                     <i class="pi pi-exclamation-triangle"></i>
                     <span>Modificaciones bloqueadas</span>
                   </div>
                   <p class="text-[10px] text-amber-600/90 font-medium leading-relaxed">
-                    La cuenta tiene pagos parciales y ya no puede modificarse.
+                    {{ hasActiveSplit ? 'La cuenta está dividida y ya no puede modificarse.' : 'La cuenta tiene pagos parciales y ya no puede modificarse.' }}
                   </p>
                 </div>
               </div>
@@ -282,7 +282,7 @@
               <!-- Primary action: enter dedicated ordering flow -->
               <div class="grid grid-cols-1 gap-2 border-b border-slate-50 pb-4">
                 <button
-                  :disabled="hasPartialPayments"
+                  :disabled="hasPartialPayments || hasActiveSplit"
                   @click="startOrdering"
                   class="w-full py-2.5 bg-[#9235DF] hover:bg-[#562AAC] text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#9235DF]/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -300,7 +300,7 @@
                 </button>
 
                 <button
-                  v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog && !hasPartialPayments"
+                  v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog && !hasPartialPayments && !hasActiveSplit"
                   type="button"
                   @click="showMoveAccountModal = true; selectedTargetTableId = null"
                   class="w-full py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-[#9235DF] hover:border-[#9235DF]/40 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
@@ -448,13 +448,13 @@
               <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 Zona: {{ getTableMetadata(selectedTable).zone }} • Camarero: {{ getTableMetadata(selectedTable).waiter }}
               </p>
-              <div v-if="hasPartialPayments" class="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold space-y-1">
+              <div v-if="hasPartialPayments || hasActiveSplit" class="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold space-y-1">
                 <div class="flex items-center gap-1.5">
                   <i class="pi pi-exclamation-triangle"></i>
                   <span>Modificaciones bloqueadas</span>
                 </div>
                 <p class="text-[10px] text-amber-600/90 font-medium leading-relaxed">
-                  La cuenta tiene pagos parciales y ya no puede modificarse.
+                  {{ hasActiveSplit ? 'La cuenta está dividida y ya no puede modificarse.' : 'La cuenta tiene pagos parciales y ya no puede modificarse.' }}
                 </p>
               </div>
             </div>
@@ -477,7 +477,7 @@
             </div>
             <div class="flex gap-2">
               <button
-                :disabled="hasPartialPayments"
+                :disabled="hasPartialPayments || hasActiveSplit"
                 @click="startOrdering"
                 class="px-4 py-2.5 bg-[#9235DF] text-white font-black text-xs rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -491,7 +491,7 @@
                 Cobrar
               </button>
               <button
-                v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog && !hasPartialPayments"
+                v-if="selectedTable.status === 'occupied' && selectedTable.orders.length > 0 && !showCheckoutDialog && !hasPartialPayments && !hasActiveSplit"
                 type="button"
                 @click="showMoveAccountModal = true; selectedTargetTableId = null"
                 class="px-4 py-2.5 bg-white border border-slate-200 text-[#9235DF] font-bold text-xs rounded-xl"
@@ -1166,80 +1166,205 @@
           </div>
         </div>
 
-        <!-- Tab toggles for complete vs partial payment mode -->
-        <div class="flex bg-slate-100 p-1 rounded-xl">
-          <button
-            type="button"
-            @click="isPartialMode = false; paymentAmountInput = ''; paymentAmountInputError = ''"
-            :class="['flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all', !isPartialMode ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-          >
-            Pagar Completo
-          </button>
-          <button
-            type="button"
-            @click="isPartialMode = true; paymentAmountInput = ''; paymentAmountInputError = ''"
-            :class="['flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all', isPartialMode ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-          >
-            Registrar Pago Parcial
-          </button>
-        </div>
-
-        <!-- Mode content -->
-        <div v-if="!isPartialMode" class="space-y-4">
-          <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
-          <div class="grid grid-cols-2 gap-4">
-            <button
-              @click="handleDirectPayment('card')"
-              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+        <!-- SPLIT PAYMENT VIEW (When splitPayment is active) -->
+        <div v-if="selectedTable && selectedTable.splitPayment" class="space-y-4">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Reparto entre comensales</span>
+          <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+            <div
+              v-for="share in selectedTable.splitPayment.shares"
+              :key="share.id"
+              class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-2xl"
             >
-              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
-                <i class="pi pi-credit-card"></i>
+              <div class="space-y-0.5">
+                <span class="font-bold text-xs text-[#08071A]">{{ share.label }}</span>
+                <span class="text-[10px] text-slate-400 font-mono block">{{ (share.amountCents / 100).toFixed(2) }} €</span>
               </div>
-              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
-            </button>
-            <button
-              @click="handleDirectPayment('cash')"
-              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-            >
-              <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-                <i class="pi pi-wallet"></i>
+              <div>
+                <span v-if="share.status === 'paid'" class="text-emerald-600 text-xs font-black flex items-center gap-1">
+                  <i class="pi pi-check-circle"></i>
+                  <span>PAGADO</span>
+                </span>
+                <div v-else class="flex items-center gap-2">
+                  <button
+                    v-if="processingShareId !== share.id"
+                    @click="startPayShare(share)"
+                    class="px-3 py-1 bg-[#9235DF] hover:bg-[#9235DF]/90 text-white text-xs font-bold rounded-lg transition-all cursor-pointer active:scale-95"
+                  >
+                    Cobrar
+                  </button>
+                  <span v-else class="text-[#9235DF] text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                    <i class="pi pi-spin pi-spinner text-xs"></i>
+                    <span>Procesando...</span>
+                  </span>
+                </div>
               </div>
-              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
-            </button>
-          </div>
-        </div>
-
-        <div v-else class="space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Importe a Pagar (€)</label>
-            <input
-              type="text"
-              v-model="paymentAmountInput"
-              placeholder="Ej: 20.50"
-              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
-            />
-            <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
+            </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <button
-              @click="handleCustomPayment('card')"
-              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-            >
-              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+          <!-- Sub-dialog for payment method confirmation of a single share -->
+          <div v-if="activeShareToPay" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-black text-slate-700">Cobrar {{ activeShareToPay.label }} ({{ (activeShareToPay.amountCents / 100).toFixed(2) }} €)</span>
+              <button @click="activeShareToPay = null" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                @click="confirmPayShare('card')"
+                :disabled="processingShareId !== null"
+                class="flex justify-center items-center gap-1.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 cursor-pointer disabled:opacity-50"
+              >
                 <i class="pi pi-credit-card"></i>
-              </div>
-              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar con Tarjeta</span>
+                <span>Tarjeta</span>
+              </button>
+              <button
+                @click="confirmPayShare('cash')"
+                :disabled="processingShareId !== null"
+                class="flex justify-center items-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 cursor-pointer disabled:opacity-50"
+              >
+                <i class="pi pi-wallet"></i>
+                <span>Efectivo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cancellation option -->
+          <div class="pt-4 border-t border-slate-100 flex justify-between items-center gap-2">
+            <button
+              type="button"
+              @click="handleCancelSplit"
+              :disabled="selectedTable.splitPayment.shares.some(s => s.status === 'paid')"
+              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 disabled:text-slate-400 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            >
+              Cancelar división
+            </button>
+            <p v-if="selectedTable.splitPayment.shares.some(s => s.status === 'paid')" class="text-[10px] text-slate-400 font-semibold italic text-right leading-tight flex-1">
+              No se puede cancelar la división porque ya existen pagos registrados.
+            </p>
+          </div>
+          <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block text-center mt-2">{{ paymentAmountInputError }}</span>
+        </div>
+
+        <!-- REGULAR CHECKOUT (When no splitPayment is active) -->
+        <div v-else class="space-y-6">
+          <!-- Tab toggles for complete vs partial vs split payment mode -->
+          <div class="flex bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              @click="checkoutTab = 'complete'; paymentAmountInputError = ''"
+              :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all', checkoutTab === 'complete' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+            >
+              Pagar Completo
             </button>
             <button
-              @click="handleCustomPayment('cash')"
-              class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              type="button"
+              @click="checkoutTab = 'partial'; paymentAmountInputError = ''"
+              :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all', checkoutTab === 'partial' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
             >
-              <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-                <i class="pi pi-wallet"></i>
-              </div>
-              <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar en Efectivo</span>
+              Pago Parcial
             </button>
+            <button
+              type="button"
+              :disabled="hasPartialPayments"
+              @click="checkoutTab = 'split'; paymentAmountInputError = ''"
+              :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed', checkoutTab === 'split' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+            >
+              Dividir Mesa
+            </button>
+          </div>
+
+          <!-- Mode content -->
+          <div v-if="checkoutTab === 'complete'" class="space-y-4">
+            <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
+            <div class="grid grid-cols-2 gap-4">
+              <button
+                @click="handleDirectPayment('card')"
+                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              >
+                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                  <i class="pi pi-credit-card"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
+              </button>
+              <button
+                @click="handleDirectPayment('cash')"
+                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              >
+                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                  <i class="pi pi-wallet"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="checkoutTab === 'partial'" class="space-y-4">
+            <div class="space-y-1.5">
+              <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Importe a Pagar (€)</label>
+              <input
+                type="text"
+                v-model="paymentAmountInput"
+                placeholder="Ej: 20.50"
+                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+              />
+              <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <button
+                @click="handleCustomPayment('card')"
+                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              >
+                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                  <i class="pi pi-credit-card"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar con Tarjeta</span>
+              </button>
+              <button
+                @click="handleCustomPayment('cash')"
+                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              >
+                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                  <i class="pi pi-wallet"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar en Efectivo</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="checkoutTab === 'split'" class="space-y-4">
+            <div v-if="hasPartialPayments" class="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold">
+              No se puede dividir la cuenta porque ya tiene pagos registrados.
+            </div>
+            <div v-else class="space-y-4">
+              <p class="text-[11px] text-slate-400 text-center">Seleccione el número de personas para dividir la cuenta a partes iguales.</p>
+              <div class="flex items-center justify-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+                <button
+                  type="button"
+                  @click="decrementPeopleCount"
+                  :disabled="splitPeopleInput <= 2"
+                  class="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer disabled:opacity-40"
+                >
+                  <i class="pi pi-minus text-xs"></i>
+                </button>
+                <span class="text-lg font-black text-slate-800 w-8 text-center">{{ splitPeopleInput }}</span>
+                <button
+                  type="button"
+                  @click="incrementPeopleCount"
+                  :disabled="splitPeopleInput >= 20"
+                  class="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer disabled:opacity-40"
+                >
+                  <i class="pi pi-plus text-xs"></i>
+                </button>
+              </div>
+              <button
+                type="button"
+                @click="handleCreateSplit"
+                class="w-full py-2.5 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition-all active:scale-95"
+              >
+                Confirmar División
+              </button>
+              <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block text-center">{{ paymentAmountInputError }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1376,6 +1501,100 @@ const hasPartialPayments = computed(() => {
   if (!selectedTable.value) return false
   return (selectedTable.value.partialPayments?.length ?? 0) > 0
 })
+
+const hasActiveSplit = computed(() => {
+  return !!selectedTable.value?.splitPayment
+})
+
+const checkoutTab = ref<'complete' | 'partial' | 'split'>('complete')
+const splitPeopleInput = ref(2)
+const processingShareId = ref<string | null>(null)
+const activeShareToPay = ref<any | null>(null)
+
+const decrementPeopleCount = () => {
+  if (splitPeopleInput.value > 2) {
+    splitPeopleInput.value--
+  }
+}
+
+const incrementPeopleCount = () => {
+  if (splitPeopleInput.value < 20) {
+    splitPeopleInput.value++
+  }
+}
+
+const handleCreateSplit = () => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+
+  const res = mesasStore.createEqualSplit(selectedTable.value.id, splitPeopleInput.value)
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) {
+      selectedTable.value = updated
+    }
+  } else {
+    if (res.reason === 'existing_partial_payments') {
+      paymentAmountInputError.value = 'No se puede dividir la cuenta porque ya tiene pagos registrados.'
+    } else if (res.reason === 'too_many_people') {
+      paymentAmountInputError.value = 'El límite máximo de personas es 20.'
+    } else if (res.reason === 'people_exceeds_cents') {
+      paymentAmountInputError.value = 'El número de personas supera el importe disponible en céntimos.'
+    } else {
+      paymentAmountInputError.value = `Error al crear la división: ${res.reason}`
+    }
+  }
+}
+
+const startPayShare = (share: any) => {
+  activeShareToPay.value = share
+}
+
+const confirmPayShare = (method: 'card' | 'cash') => {
+  if (!selectedTable.value || !activeShareToPay.value) return
+  const shareId = activeShareToPay.value.id
+  processingShareId.value = shareId
+
+  const res = mesasStore.paySplitShare({
+    tableId: selectedTable.value.id,
+    shareId,
+    method
+  })
+
+  setTimeout(() => {
+    processingShareId.value = null
+    activeShareToPay.value = null
+
+    if (res.success) {
+      if (res.isFullyPaid) {
+        showCheckoutDialog.value = false
+        selectedTable.value = null
+      } else {
+        const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+        if (updated) {
+          selectedTable.value = updated
+        }
+      }
+    } else {
+      paymentAmountInputError.value = `Error en el pago: ${res.reason}`
+    }
+  }, 200)
+}
+
+const handleCancelSplit = () => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+
+  const res = mesasStore.cancelEqualSplit(selectedTable.value.id)
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) {
+      selectedTable.value = updated
+    }
+  } else {
+    paymentAmountInputError.value = `Error al cancelar: ${res.reason}`
+  }
+}
 
 const isPartialMode = ref(false)
 const paymentAmountInput = ref('')
@@ -1529,6 +1748,7 @@ const getMoveErrorMsg = (reason?: string) => {
     case 'target_has_orders': return 'La mesa destino conserva pedidos y no puede utilizarse.'
     case 'target_inactive': return 'El punto de servicio está inactivo.'
     case 'source_has_partial_payments': return 'La mesa de origen ya tiene pagos parciales registrados y no puede moverse.'
+    case 'source_has_active_split': return 'La mesa de origen ya tiene una división activa y no puede moverse.'
     case 'table_not_found': return 'La mesa especificada no existe.'
     case 'table_has_no_orders': return 'La mesa no tiene ningún pedido activo.'
     case 'invalid_amount': return 'El importe especificado no es válido.'
@@ -2091,6 +2311,10 @@ const tryCheckout = () => {
   isPartialMode.value = false
   paymentAmountInput.value = ''
   paymentAmountInputError.value = ''
+  checkoutTab.value = 'complete'
+  splitPeopleInput.value = 2
+  processingShareId.value = null
+  activeShareToPay.value = null
   showCheckoutDialog.value = true
 }
 
@@ -2099,6 +2323,10 @@ const proceedToCheckout = () => {
   isPartialMode.value = false
   paymentAmountInput.value = ''
   paymentAmountInputError.value = ''
+  checkoutTab.value = 'complete'
+  splitPeopleInput.value = 2
+  processingShareId.value = null
+  activeShareToPay.value = null
   showCheckoutDialog.value = true
 }
 
