@@ -687,8 +687,9 @@
                   <span :class="['inline-block text-[8px] px-2 py-0.5 rounded-full font-black tracking-wider uppercase border',
                     order.paymentMethod === 'card' ? 'bg-indigo-50 text-indigo-600 border-indigo-200/60' :
                     order.paymentMethod === 'bizum' ? 'bg-[#9235DF]/5 text-[#9235DF] border-[#9235DF]/20' :
+                    order.paymentMethod === 'complimentary' ? 'bg-[#9235DF]/10 text-[#9235DF] border-[#9235DF]/20' :
                     'bg-emerald-50 text-emerald-600 border-emerald-200/60']">
-                    {{ order.paymentMethod === 'card' ? 'Tarjeta' : order.paymentMethod === 'bizum' ? 'Bizum' : 'Efectivo' }}
+                    {{ order.paymentMethod === 'card' ? 'Tarjeta' : order.paymentMethod === 'bizum' ? 'Bizum' : order.paymentMethod === 'complimentary' ? 'Cortesía' : 'Efectivo' }}
                   </span>
                 </div>
               </div>

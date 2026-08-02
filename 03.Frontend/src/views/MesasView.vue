@@ -1135,8 +1135,16 @@
         <!-- Summary panel showing Total, Paid, and Remaining -->
         <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-2">
           <div class="flex justify-between font-medium text-slate-500">
-            <span>Total Facturado:</span>
-            <span class="font-bold text-[#08071A]">{{ selectedTable ? (mesasStore.getTableTotalCents(selectedTable.id) / 100).toFixed(2) : '0.00' }} €</span>
+            <span>Total Bruto:</span>
+            <span class="font-bold text-[#08071A]">{{ selectedTable ? (mesasStore.getTableGrossTotalCents(selectedTable.id) / 100).toFixed(2) : '0.00' }} €</span>
+          </div>
+          <div v-if="selectedTable && mesasStore.getTableDiscountCents(selectedTable.id) > 0" class="flex justify-between font-medium text-red-500">
+            <span>Descuento ({{ selectedTable.discount?.type === 'percentage' ? selectedTable.discount.percentage + '%' : 'Fijo' }}) - {{ selectedTable.discount?.reason.toUpperCase() }}:</span>
+            <span class="font-bold">-{{ (mesasStore.getTableDiscountCents(selectedTable.id) / 100).toFixed(2) }} €</span>
+          </div>
+          <div v-if="selectedTable && mesasStore.getTableDiscountCents(selectedTable.id) > 0" class="flex justify-between font-bold text-slate-700">
+            <span>Total Neto:</span>
+            <span class="font-bold">{{ (mesasStore.getTableNetTotalCents(selectedTable.id) / 100).toFixed(2) }} €</span>
           </div>
           <div class="flex justify-between font-medium text-slate-500">
             <span>Total Pagado:</span>
@@ -1534,207 +1542,387 @@
 
         <!-- REGULAR CHECKOUT (When no splitPayment is active) -->
         <div v-else class="space-y-6">
-          <!-- Tab toggles for complete vs partial vs split payment mode -->
-          <div class="flex bg-slate-100 p-1 rounded-xl">
-            <button
-              type="button"
-              @click="checkoutTab = 'complete'; paymentAmountInputError = ''"
-              :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all', checkoutTab === 'complete' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-            >
-              Pagar Completo
-            </button>
-            <button
-              type="button"
-              @click="checkoutTab = 'partial'; paymentAmountInputError = ''"
-              :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all', checkoutTab === 'partial' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-            >
-              Pago Parcial
-            </button>
-            <button
-              type="button"
-              :disabled="hasPartialPayments"
-              @click="checkoutTab = 'split'; paymentAmountInputError = ''"
-              :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed', checkoutTab === 'split' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-            >
-              Dividir Mesa
-            </button>
-          </div>
+          <!-- Discount Editor Panel (Only before payments and splits) -->
+          <div v-if="selectedTable" class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 text-xs">
+            <!-- Discount Form -->
+            <div v-if="showDiscountForm" class="space-y-3 animate-in fade-in duration-200">
+              <h4 class="font-bold text-[#08071A] flex items-center gap-1.5 font-outfit">
+                <i class="pi pi-tag text-[#9235DF]"></i>
+                <span>Configurar Descuento</span>
+              </h4>
 
-          <!-- Mode content -->
-          <div v-if="checkoutTab === 'complete'" class="space-y-4">
-            <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
-            <div v-if="!(bizumVerificationActive && bizumVerificationType === 'complete')" class="grid grid-cols-3 gap-3">
-              <button
-                @click="handleDirectPayment('card')"
-                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-              >
-                <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
-                  <i class="pi pi-credit-card"></i>
-                </div>
-                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
-              </button>
-              <button
-                @click="handleDirectPayment('cash')"
-                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-              >
-                <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-                  <i class="pi pi-wallet"></i>
-                </div>
-                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
-              </button>
-              <button
-                @click="bizumVerificationType = 'complete'; bizumVerificationActive = true"
-                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-              >
-                <div class="w-9 h-9 rounded-full bg-[#9235DF]/10 text-[#9235DF] flex items-center justify-center border border-[#9235DF]/20 group-hover:scale-105 transition-transform">
-                  <i class="pi pi-mobile"></i>
-                </div>
-                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
-              </button>
-            </div>
-
-            <!-- Bizum Manual Verification sub-card -->
-            <div v-else class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
-              <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
-                Confirma que has verificado la recepción del Bizum antes de continuar.
-              </p>
-              <div class="flex gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <button
-                  @click="handleDirectPayment('bizum', true); resetBizum()"
-                  class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  type="button"
+                  @click="discountFormType = 'percentage'"
+                  :class="['py-2 text-center text-[10px] font-bold rounded-xl border transition-all cursor-pointer',
+                    discountFormType === 'percentage' ? 'bg-[#9235DF]/10 text-[#9235DF] border-[#9235DF]/30' : 'bg-white text-slate-500 border-slate-200']"
                 >
-                  Confirmar cobro
+                  Porcentaje (%)
                 </button>
                 <button
-                  @click="resetBizum"
+                  type="button"
+                  @click="discountFormType = 'fixed'"
+                  :class="['py-2 text-center text-[10px] font-bold rounded-xl border transition-all cursor-pointer',
+                    discountFormType === 'fixed' ? 'bg-[#9235DF]/10 text-[#9235DF] border-[#9235DF]/30' : 'bg-white text-slate-500 border-slate-200']"
+                >
+                  Importe Fijo (€)
+                </button>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  {{ discountFormType === 'percentage' ? 'Porcentaje de descuento' : 'Importe de descuento (€)' }}
+                </label>
+                <input
+                  type="text"
+                  v-model="discountFormValue"
+                  :placeholder="discountFormType === 'percentage' ? 'Ej: 10' : 'Ej: 5.50'"
+                  class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Motivo</label>
+                <select
+                  v-model="discountFormReason"
+                  class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                >
+                  <option value="cortesia">Cortesía</option>
+                  <option value="incidencia">Incidencia</option>
+                  <option value="promocion">Promoción</option>
+                  <option value="empleado">Empleado</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  Detalle del motivo <span v-if="discountFormReason === 'otro'" class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="discountFormReasonDetails"
+                  placeholder="Ej: Plato frío / Invitación cliente habitual"
+                  class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                />
+              </div>
+
+              <span v-if="discountFormError" class="text-[10px] text-red-500 font-bold block">{{ discountFormError }}</span>
+
+              <div class="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  @click="handleApplyDiscount"
+                  class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Aplicar
+                </button>
+                <button
+                  type="button"
+                  @click="showDiscountForm = false"
                   class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>
               </div>
             </div>
-          </div>
 
-          <div v-else-if="checkoutTab === 'partial'" class="space-y-4">
-            <div class="space-y-1.5">
-              <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Importe a Pagar (€)</label>
-              <input
-                type="text"
-                v-model="paymentAmountInput"
-                :disabled="bizumVerificationActive && bizumVerificationType === 'partial'"
-                placeholder="Ej: 20.50"
-                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A] disabled:opacity-50"
-              />
-              <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
-            </div>
-
-            <div v-if="!(bizumVerificationActive && bizumVerificationType === 'partial')" class="grid grid-cols-3 gap-3">
-              <button
-                @click="handleCustomPayment('card')"
-                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-              >
-                <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
-                  <i class="pi pi-credit-card"></i>
+            <!-- Active Discount Display / Action Trigger -->
+            <div v-else>
+              <div v-if="selectedTable.discount" class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
+                <div class="space-y-0.5">
+                  <p class="font-bold text-[#08071A]">Descuento Aplicado</p>
+                  <p class="text-[10px] text-slate-400">
+                    {{ selectedTable.discount.type === 'percentage' ? selectedTable.discount.percentage + '%' : (selectedTable.discount.valueCents / 100).toFixed(2) + ' €' }}
+                    • Motivo: <span class="font-semibold text-slate-600 uppercase text-[9px]">{{ selectedTable.discount.reason }}</span>
+                  </p>
+                  <p v-if="selectedTable.discount.reasonDetails" class="text-[9px] text-slate-400 italic">
+                    "{{ selectedTable.discount.reasonDetails }}"
+                  </p>
                 </div>
-                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
-              </button>
-              <button
-                @click="handleCustomPayment('cash')"
-                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-              >
-                <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-                  <i class="pi pi-wallet"></i>
+                <div v-if="!hasPartialPayments" class="flex gap-1">
+                  <button
+                    type="button"
+                    @click="triggerReplaceDiscount"
+                    class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold rounded-lg cursor-pointer"
+                  >
+                    Sustituir
+                  </button>
+                  <button
+                    type="button"
+                    @click="handleRemoveDiscount"
+                    class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold rounded-lg cursor-pointer"
+                  >
+                    Eliminar
+                  </button>
                 </div>
-                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
-              </button>
-              <button
-                @click="triggerPartialBizum"
-                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
-              >
-                <div class="w-9 h-9 rounded-full bg-[#9235DF]/10 text-[#9235DF] flex items-center justify-center border border-[#9235DF]/20 group-hover:scale-105 transition-transform">
-                  <i class="pi pi-mobile"></i>
-                </div>
-                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
-              </button>
-            </div>
-
-            <!-- Bizum Manual Verification sub-card -->
-            <div v-else class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
-              <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
-                Confirma que has verificado la recepción del Bizum antes de continuar.
-              </p>
-              <div class="flex gap-2">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <i class="pi pi-lock"></i>
+                  <span>Congelado</span>
+                </span>
+              </div>
+              <div v-else-if="!hasPartialPayments">
                 <button
-                  @click="handleCustomPayment('bizum', true); resetBizum()"
-                  class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  type="button"
+                  @click="triggerAddDiscount"
+                  class="w-full py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 hover:border-slate-300 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  Confirmar cobro
+                  <i class="pi pi-tag text-[#9235DF]"></i>
+                  <span>Aplicar Descuento / Cortesía</span>
                 </button>
-                <button
-                  @click="resetBizum"
-                  class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
+              </div>
+              <div v-else class="text-center text-[10px] text-slate-400 font-semibold italic">
+                No se pueden aplicar descuentos con pagos activos.
               </div>
             </div>
           </div>
 
-          <div v-else-if="checkoutTab === 'split'" class="space-y-4">
-            <div v-if="hasPartialPayments" class="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold">
-              No se puede dividir la cuenta porque ya tiene pagos registrados.
-            </div>
-            <div v-else class="space-y-4">
-              <!-- Split Mode Switcher -->
-              <div class="flex bg-slate-100 p-1 rounded-xl mb-2">
-                <button
-                  type="button"
-                  @click="splitModeInput = 'equal'; paymentAmountInputError = ''"
-                  :class="['flex-1 py-1 text-center text-[10px] font-bold rounded-lg transition-all', splitModeInput === 'equal' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-                >
-                  A partes iguales
-                </button>
-                <button
-                  type="button"
-                  @click="splitModeInput = 'products'; paymentAmountInputError = ''"
-                  :class="['flex-1 py-1 text-center text-[10px] font-bold rounded-lg transition-all', splitModeInput === 'products' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
-                >
-                  Por productos
-                </button>
-              </div>
-
-              <p class="text-[11px] text-slate-400 text-center">
-                {{ splitModeInput === 'equal' ? 'Seleccione el número de personas para dividir la cuenta a partes iguales.' : 'Seleccione el número de personas para distribuir los productos.' }}
+          <!-- Cortesía Total Check vs Normal Checkout Toggles -->
+          <div v-if="selectedTable && mesasStore.getTableNetTotalCents(selectedTable.id) === 0" class="space-y-4">
+            <div class="p-4 bg-purple-50 border border-purple-200 rounded-2xl text-center space-y-3">
+              <i class="pi pi-gift text-2xl text-[#9235DF]"></i>
+              <h4 class="text-xs font-bold text-[#08071A] uppercase font-outfit">Cortesía Total Activada</h4>
+              <p class="text-[11px] text-slate-500 leading-tight">
+                El total neto de esta mesa es 0,00 € debido a un descuento de cortesía del 100%. La mesa se cerrará liberando el estado y descontando el stock del inventario sin registrar cobros monetarios.
               </p>
 
-              <div class="flex items-center justify-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+              <div v-if="!complimentaryConfirmActive" class="pt-2">
                 <button
                   type="button"
-                  @click="decrementPeopleCount"
-                  :disabled="splitPeopleInput <= 2"
-                  class="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer disabled:opacity-40"
+                  @click="complimentaryConfirmActive = true"
+                  class="w-full py-2.5 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
-                  <i class="pi pi-minus text-xs"></i>
-                </button>
-                <span class="text-lg font-black text-slate-800 w-8 text-center">{{ splitPeopleInput }}</span>
-                <button
-                  type="button"
-                  @click="incrementPeopleCount"
-                  :disabled="splitPeopleInput >= 20"
-                  class="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer disabled:opacity-40"
-                >
-                  <i class="pi pi-plus text-xs"></i>
+                  Completar cortesía
                 </button>
               </div>
+              <div v-else class="p-3 bg-white rounded-xl border border-slate-100 space-y-3 animate-in fade-in duration-200">
+                <p class="text-[10px] text-slate-700 font-bold leading-tight">
+                  ¿Estás seguro de completar la cortesía total?
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    @click="handleCompleteComplimentary"
+                    class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Sí, cerrar mesa
+                  </button>
+                  <button
+                    type="button"
+                    @click="complimentaryConfirmActive = false"
+                    class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
+          <div v-else class="space-y-6">
+            <!-- Tab toggles for complete vs partial vs split payment mode -->
+            <div class="flex bg-slate-100 p-1 rounded-xl">
               <button
                 type="button"
-                @click="handleCreateSplit"
-                class="w-full py-2.5 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition-all active:scale-95"
+                @click="checkoutTab = 'complete'; paymentAmountInputError = ''"
+                :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all', checkoutTab === 'complete' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
               >
-                Confirmar División
+                Pagar Completo
               </button>
-              <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block text-center">{{ paymentAmountInputError }}</span>
+              <button
+                type="button"
+                @click="checkoutTab = 'partial'; paymentAmountInputError = ''"
+                :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all', checkoutTab === 'partial' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+              >
+                Pago Parcial
+              </button>
+              <button
+                type="button"
+                :disabled="hasPartialPayments"
+                @click="checkoutTab = 'split'; paymentAmountInputError = ''"
+                :class="['flex-1 py-1.5 text-center text-[10px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed', checkoutTab === 'split' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+              >
+                Dividir Mesa
+              </button>
+            </div>
+
+            <!-- Mode content -->
+            <div v-if="checkoutTab === 'complete'" class="space-y-4">
+              <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'complete')" class="grid grid-cols-3 gap-3">
+                <button
+                  @click="handleDirectPayment('card')"
+                  class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                >
+                  <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                    <i class="pi pi-credit-card"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
+                </button>
+                <button
+                  @click="handleDirectPayment('cash')"
+                  class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                >
+                  <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                    <i class="pi pi-wallet"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
+                </button>
+                <button
+                  @click="bizumVerificationType = 'complete'; bizumVerificationActive = true"
+                  class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                >
+                  <div class="w-9 h-9 rounded-full bg-[#9235DF]/10 text-[#9235DF] flex items-center justify-center border border-[#9235DF]/20 group-hover:scale-105 transition-transform">
+                    <i class="pi pi-mobile"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
+                </button>
+              </div>
+
+              <!-- Bizum Manual Verification sub-card -->
+              <div v-else class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+                <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
+                  Confirma que has verificado la recepción del Bizum antes de continuar.
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    @click="handleDirectPayment('bizum', true); resetBizum()"
+                    class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  >
+                    Confirmar cobro
+                  </button>
+                  <button
+                    @click="resetBizum"
+                    class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="checkoutTab === 'partial'" class="space-y-4">
+              <div class="space-y-1.5">
+                <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Importe a Pagar (€)</label>
+                <input
+                  type="text"
+                  v-model="paymentAmountInput"
+                  :disabled="bizumVerificationActive && bizumVerificationType === 'partial'"
+                  placeholder="Ej: 20.50"
+                  class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A] disabled:opacity-50"
+                />
+                <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
+              </div>
+
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'partial')" class="grid grid-cols-3 gap-3">
+                <button
+                  @click="handleCustomPayment('card')"
+                  class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                >
+                  <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                    <i class="pi pi-credit-card"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
+                </button>
+                <button
+                  @click="handleCustomPayment('cash')"
+                  class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                >
+                  <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                    <i class="pi pi-wallet"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
+                </button>
+                <button
+                  @click="triggerPartialBizum"
+                  class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                >
+                  <div class="w-9 h-9 rounded-full bg-[#9235DF]/10 text-[#9235DF] flex items-center justify-center border border-[#9235DF]/20 group-hover:scale-105 transition-transform">
+                    <i class="pi pi-mobile"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
+                </button>
+              </div>
+
+              <!-- Bizum Manual Verification sub-card -->
+              <div v-else class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+                <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
+                  Confirma que has verificado la recepción del Bizum antes de continuar.
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    @click="handleCustomPayment('bizum', true); resetBizum()"
+                    class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  >
+                    Confirmar cobro
+                  </button>
+                  <button
+                    @click="resetBizum"
+                    class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="checkoutTab === 'split'" class="space-y-4">
+              <div v-if="hasPartialPayments" class="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-semibold">
+                No se puede dividir la cuenta porque ya tiene pagos registrados.
+              </div>
+              <div v-else class="space-y-4">
+                <!-- Split Mode Switcher -->
+                <div class="flex bg-slate-100 p-1 rounded-xl mb-2">
+                  <button
+                    type="button"
+                    @click="splitModeInput = 'equal'; paymentAmountInputError = ''"
+                    :class="['flex-1 py-1 text-center text-[10px] font-bold rounded-lg transition-all', splitModeInput === 'equal' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+                  >
+                    A partes iguales
+                  </button>
+                  <button
+                    type="button"
+                    @click="splitModeInput = 'products'; paymentAmountInputError = ''"
+                    :class="['flex-1 py-1 text-center text-[10px] font-bold rounded-lg transition-all', splitModeInput === 'products' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+                  >
+                    Por productos
+                  </button>
+                </div>
+
+                <p class="text-[11px] text-slate-400 text-center">
+                  {{ splitModeInput === 'equal' ? 'Seleccione el número de personas para dividir la cuenta a partes iguales.' : 'Seleccione el número de personas para distribuir los productos.' }}
+                </p>
+
+                <div class="flex items-center justify-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+                  <button
+                    type="button"
+                    @click="decrementPeopleCount"
+                    :disabled="splitPeopleInput <= 2"
+                    class="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    <i class="pi pi-minus text-xs"></i>
+                  </button>
+                  <span class="text-lg font-black text-slate-800 w-8 text-center">{{ splitPeopleInput }}</span>
+                  <button
+                    type="button"
+                    @click="incrementPeopleCount"
+                    :disabled="splitPeopleInput >= 20"
+                    class="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    <i class="pi pi-plus text-xs"></i>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  @click="handleCreateSplit"
+                  class="w-full py-2.5 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition-all active:scale-95"
+                >
+                  Confirmar División
+                </button>
+                <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block text-center">{{ paymentAmountInputError }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1852,7 +2040,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useMesasStore, type Table, type NormalizedTable, type PaymentMethod } from '../stores/mesas'
+import { useMesasStore, type Table, type NormalizedTable, type PaymentMethod, type DiscountReason } from '../stores/mesas'
 import { useCartaStore, type MenuItem } from '../stores/carta'
 import { useLocalesStore } from '../stores/locales'
 
@@ -1867,6 +2055,14 @@ const activeCategory = ref<string>('all')
 const showReleaseWarning = ref(false)
 const warningMessage = ref('')
 const warningType = ref<'success' | 'error'>('error')
+
+const showDiscountForm = ref(false)
+const discountFormType = ref<'percentage' | 'fixed'>('percentage')
+const discountFormValue = ref('')
+const discountFormReason = ref<DiscountReason>('cortesia')
+const discountFormReasonDetails = ref('')
+const discountFormError = ref('')
+const complimentaryConfirmActive = ref(false)
 
 const hasPartialPayments = computed(() => {
   if (!selectedTable.value) return false
@@ -1930,6 +2126,118 @@ const handleCreateSplit = () => {
     } else {
       paymentAmountInputError.value = `Error al crear la división: ${res.reason}`
     }
+  }
+}
+
+const parseFixedDiscountInput = (val: string): { cents: number; error?: string } => {
+  const clean = val.trim()
+  if (!clean) return { cents: 0, error: 'Introduzca un importe.' }
+
+  const match = clean.match(/^(\d+)(?:[.,](\d{1,2}))?$/)
+  if (!match) {
+    return { cents: 0, error: 'Formato incorrecto. Ej: 5.50 o 5,50' }
+  }
+
+  const euros = parseInt(match[1], 10)
+  let cents = 0
+  if (match[2]) {
+    cents = parseInt(match[2].padEnd(2, '0'), 10)
+  }
+
+  const totalCents = euros * 100 + cents
+  if (totalCents <= 0) {
+    return { cents: 0, error: 'El descuento debe ser mayor que cero.' }
+  }
+
+  return { cents: totalCents }
+}
+
+const handleApplyDiscount = () => {
+  if (!selectedTable.value) return
+  discountFormError.value = ''
+
+  if (discountFormReason.value === 'otro' && !discountFormReasonDetails.value.trim()) {
+    discountFormError.value = 'El detalle del motivo es obligatorio para "Otro".'
+    return
+  }
+
+  let valNum = 0
+  if (discountFormType.value === 'percentage') {
+    const parsed = parseInt(discountFormValue.value.trim(), 10)
+    if (isNaN(parsed) || parsed < 1 || parsed > 100 || String(parsed) !== discountFormValue.value.trim()) {
+      discountFormError.value = 'El porcentaje debe ser un entero entre 1 y 100.'
+      return
+    }
+    valNum = parsed
+  } else {
+    const parsed = parseFixedDiscountInput(discountFormValue.value)
+    if (parsed.error) {
+      discountFormError.value = parsed.error
+      return
+    }
+    valNum = parsed.cents
+  }
+
+  const res = mesasStore.applyTableDiscount({
+    tableId: selectedTable.value.id,
+    type: discountFormType.value,
+    value: valNum,
+    reason: discountFormReason.value,
+    reasonDetails: discountFormReasonDetails.value.trim() || undefined
+  })
+
+  if (res.success) {
+    showDiscountForm.value = false
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) selectedTable.value = updated
+  } else {
+    discountFormError.value = `Error: ${res.reason}`
+  }
+}
+
+const handleRemoveDiscount = () => {
+  if (!selectedTable.value) return
+  const res = mesasStore.removeTableDiscount(selectedTable.value.id)
+  if (res.success) {
+    showDiscountForm.value = false
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) selectedTable.value = updated
+  }
+}
+
+const triggerAddDiscount = () => {
+  discountFormValue.value = ''
+  discountFormReason.value = 'cortesia'
+  discountFormReasonDetails.value = ''
+  discountFormError.value = ''
+  showDiscountForm.value = true
+}
+
+const triggerReplaceDiscount = () => {
+  if (!selectedTable.value || !selectedTable.value.discount) return
+  const disc = selectedTable.value.discount
+  discountFormType.value = disc.type
+  if (disc.type === 'percentage') {
+    discountFormValue.value = String(disc.percentage)
+  } else {
+    discountFormValue.value = (disc.valueCents / 100).toFixed(2).replace('.', ',')
+  }
+  discountFormReason.value = disc.reason
+  discountFormReasonDetails.value = disc.reasonDetails || ''
+  discountFormError.value = ''
+  showDiscountForm.value = true
+}
+
+const handleCompleteComplimentary = () => {
+  if (!selectedTable.value) return
+  const res = mesasStore.completeComplimentaryTable(selectedTable.value.id)
+  if (res.success) {
+    showCheckoutDialog.value = false
+    selectedTable.value = null
+    showReleaseWarning.value = false
+    complimentaryConfirmActive.value = false
+  } else {
+    paymentAmountInputError.value = `Error en cortesía: ${res.reason}`
   }
 }
 
@@ -2134,6 +2442,13 @@ watch(selectedTable, () => {
   paymentAmountInput.value = ''
   paymentAmountInputError.value = ''
   resetBizum()
+
+  showDiscountForm.value = false
+  discountFormValue.value = ''
+  discountFormReason.value = 'cortesia'
+  discountFormReasonDetails.value = ''
+  discountFormError.value = ''
+  complimentaryConfirmActive.value = false
 })
 
 watch(checkoutTab, () => {

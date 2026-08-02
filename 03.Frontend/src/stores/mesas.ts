@@ -71,10 +71,41 @@ export interface ProductSplitAllocation {
   amountCents: number
 }
 
+export type DiscountReason =
+  | 'cortesia'
+  | 'incidencia'
+  | 'promocion'
+  | 'empleado'
+  | 'otro'
+
+export interface FixedTableDiscount {
+  type: 'fixed'
+  valueCents: number
+  amountCents: number
+  reason: DiscountReason
+  reasonDetails?: string
+  createdAt: string
+}
+
+export interface PercentageTableDiscount {
+  type: 'percentage'
+  percentage: number
+  amountCents: number
+  reason: DiscountReason
+  reasonDetails?: string
+  createdAt: string
+}
+
+export type TableDiscount =
+  | FixedTableDiscount
+  | PercentageTableDiscount
+
 export interface ProductSplitPerson {
   id: string
   label: string
   allocations: ProductSplitAllocation[]
+  grossAmountCents: number
+  discountAmountCents: number
   amountCents: number
   status: 'pending' | 'paid'
   paymentId?: string
@@ -110,6 +141,8 @@ export interface Table {
   partialPayments?: PartialPayment[]
   // Campo opcional Evolución 2.9B & 2.9C
   splitPayment?: SplitPaymentInfo
+  // Campo opcional Evolución 2.9E
+  discount?: TableDiscount
 }
 
 export interface NormalizedTable extends Table {
@@ -141,12 +174,23 @@ export interface MoveTableAccountResult {
     | 'source_has_active_split'
 }
 
+export type CompletedOrderPaymentMethod = PaymentMethod | 'complimentary'
+
+export interface CompletedOrderDiscount {
+  type: 'percentage' | 'fixed'
+  percentage?: number
+  valueCents?: number
+  amountCents: number
+  reason: DiscountReason
+  reasonDetails?: string
+}
+
 export interface CompletedOrder {
   id: string
   tableNumber: number
   itemsCount: number
   total: number
-  paymentMethod: 'card' | 'cash' | 'bizum'
+  paymentMethod: CompletedOrderPaymentMethod
   timestamp: string // HH:MM
   payments?: CompletedPayment[]
   isMixedPayment?: boolean
@@ -164,6 +208,8 @@ export interface CompletedOrder {
     peopleCount: number
     people: Array<{
       label: string
+      grossAmountCents: number
+      discountAmountCents: number
       amountCents: number
       paymentId: string
       allocations: Array<{
@@ -175,6 +221,9 @@ export interface CompletedOrder {
       }>
     }>
   }
+  grossTotalCents?: number
+  discount?: CompletedOrderDiscount
+  settlementType?: 'payment' | 'complimentary'
 }
 
 export interface CheckoutPaymentResult {
@@ -320,6 +369,7 @@ export interface PayProductSplitPersonResult {
     | 'amount_mismatch'
     | 'already_paid'
     | 'manual_verification_required'
+    | 'net_amount_mismatch'
 }
 
 export interface CancelProductSplitResult {
@@ -330,6 +380,37 @@ export interface CancelProductSplitResult {
     | 'split_not_found'
     | 'invalid_split_mode'
     | 'split_has_payments'
+}
+
+export interface ApplyTableDiscountResult {
+  success: boolean
+  tableId: string
+  reason?:
+    | 'table_not_found'
+    | 'table_has_no_orders'
+    | 'existing_payments'
+    | 'active_split_present'
+    | 'invalid_discount_type'
+    | 'invalid_percentage'
+    | 'invalid_fixed_amount'
+    | 'discount_exceeds_gross_total'
+}
+
+export interface RemoveTableDiscountResult {
+  success: boolean
+  tableId: string
+  reason?: 'table_not_found' | 'existing_payments' | 'active_split_present' | 'discount_not_found'
+}
+
+export interface CompleteComplimentaryTableResult {
+  success: boolean
+  tableId: string
+  reason?:
+    | 'table_not_found'
+    | 'table_has_no_orders'
+    | 'existing_payments'
+    | 'active_split_present'
+    | 'complimentary_checkout_not_allowed'
 }
 
 export const useMesasStore = defineStore('mesas', () => {
@@ -624,6 +705,23 @@ export const useMesasStore = defineStore('mesas', () => {
     }, 0)
   }
 
+  function getTableGrossTotalCents(tableId: string): number {
+    return getTableTotalCents(tableId)
+  }
+
+  function getTableDiscountCents(tableId: string): number {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table || !table.discount) return 0
+    return table.discount.amountCents
+  }
+
+  function getTableNetTotalCents(tableId: string): number {
+    const gross = getTableGrossTotalCents(tableId)
+    const discount = getTableDiscountCents(tableId)
+    const net = gross - discount
+    return net < 0 ? 0 : net
+  }
+
   function getTablePaidCents(tableId: string): number {
     const table = tables.value.find(t => t.id === tableId)
     if (!table || !table.partialPayments) return 0
@@ -631,17 +729,24 @@ export const useMesasStore = defineStore('mesas', () => {
   }
 
   function getTableRemainingCents(tableId: string): number {
-    const total = getTableTotalCents(tableId)
+    const net = getTableNetTotalCents(tableId)
     const paid = getTablePaidCents(tableId)
-    const remaining = total - paid
+    const remaining = net - paid
     return remaining < 0 ? 0 : remaining
   }
 
-  function executeTableCheckout(table: Table, allPayments: CompletedPayment[], totalCents: number) {
+  function executeTableCheckout(
+    table: Table,
+    allPayments: CompletedPayment[],
+    totalCents: number,
+    settlementType: 'payment' | 'complimentary' = 'payment'
+  ) {
     const uniqueMethods = new Set(allPayments.map(payment => payment.method))
     const isMixedPayment = uniqueMethods.size > 1
-    let paymentMethodLegacy: 'card' | 'cash' | 'bizum' = 'card'
-    if (uniqueMethods.size === 1) {
+    let paymentMethodLegacy: CompletedOrderPaymentMethod = 'card'
+    if (settlementType === 'complimentary') {
+      paymentMethodLegacy = 'complimentary'
+    } else if (uniqueMethods.size === 1) {
       paymentMethodLegacy = Array.from(uniqueMethods)[0]
     } else {
       paymentMethodLegacy = 'card'
@@ -671,6 +776,8 @@ export const useMesasStore = defineStore('mesas', () => {
           peopleCount: table.splitPayment.peopleCount,
           people: table.splitPayment.people.map(p => ({
             label: p.label,
+            grossAmountCents: p.grossAmountCents,
+            discountAmountCents: p.discountAmountCents,
             amountCents: p.amountCents,
             paymentId: p.paymentId || '',
             allocations: p.allocations.map(a => {
@@ -689,6 +796,16 @@ export const useMesasStore = defineStore('mesas', () => {
       }
     }
 
+    const grossTotalCents = table.orders.reduce((sum, item) => sum + Math.round(item.price * 100 * item.quantity), 0)
+    const orderDiscount: CompletedOrderDiscount | undefined = table.discount ? {
+      type: table.discount.type,
+      percentage: table.discount.type === 'percentage' ? table.discount.percentage : undefined,
+      valueCents: table.discount.type === 'fixed' ? table.discount.valueCents : undefined,
+      amountCents: table.discount.amountCents,
+      reason: table.discount.reason,
+      reasonDetails: table.discount.reasonDetails
+    } : undefined
+
     completedOrders.value.push({
       id: 'c-' + Math.random().toString(36).substr(2, 9),
       tableNumber: table.number,
@@ -699,7 +816,10 @@ export const useMesasStore = defineStore('mesas', () => {
       payments: allPayments,
       isMixedPayment,
       splitSummary,
-      productSplitSummary
+      productSplitSummary,
+      grossTotalCents,
+      discount: orderDiscount,
+      settlementType
     })
     saveCompletedOrders()
 
@@ -730,7 +850,8 @@ export const useMesasStore = defineStore('mesas', () => {
           orders: [],
           waiterId: undefined,
           partialPayments: [],
-          splitPayment: undefined
+          splitPayment: undefined,
+          discount: undefined
         } as Table
       }
       return t
@@ -738,6 +859,121 @@ export const useMesasStore = defineStore('mesas', () => {
 
     tables.value = nextTables
     saveTables()
+  }
+
+  function applyTableDiscount(input: {
+    tableId: string
+    type: 'percentage' | 'fixed'
+    value: number
+    reason: DiscountReason
+    reasonDetails?: string
+  }): ApplyTableDiscountResult {
+    const { tableId, type, value, reason, reasonDetails } = input
+
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) {
+      return { success: false, tableId, reason: 'table_not_found' }
+    }
+    if (table.orders.length === 0) {
+      return { success: false, tableId, reason: 'table_has_no_orders' }
+    }
+    if (table.partialPayments && table.partialPayments.length > 0) {
+      return { success: false, tableId, reason: 'existing_payments' }
+    }
+    if (table.splitPayment) {
+      return { success: false, tableId, reason: 'active_split_present' }
+    }
+
+    const grossTotal = getTableGrossTotalCents(tableId)
+    let calculatedAmountCents = 0
+
+    if (type === 'percentage') {
+      if (value < 1 || value > 100 || !Number.isInteger(value)) {
+        return { success: false, tableId, reason: 'invalid_percentage' }
+      }
+      calculatedAmountCents = Math.round(grossTotal * (value / 100))
+    } else if (type === 'fixed') {
+      if (value <= 0 || !Number.isInteger(value)) {
+        return { success: false, tableId, reason: 'invalid_fixed_amount' }
+      }
+      if (value > grossTotal) {
+        return { success: false, tableId, reason: 'discount_exceeds_gross_total' }
+      }
+      calculatedAmountCents = value
+    } else {
+      return { success: false, tableId, reason: 'invalid_discount_type' }
+    }
+
+    const createdAt = new Date().toISOString()
+    if (type === 'percentage') {
+      table.discount = {
+        type: 'percentage',
+        percentage: value,
+        amountCents: calculatedAmountCents,
+        reason,
+        reasonDetails,
+        createdAt
+      }
+    } else {
+      table.discount = {
+        type: 'fixed',
+        valueCents: value,
+        amountCents: calculatedAmountCents,
+        reason,
+        reasonDetails,
+        createdAt
+      }
+    }
+
+    saveTables()
+    return { success: true, tableId }
+  }
+
+  function removeTableDiscount(tableId: string): RemoveTableDiscountResult {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) {
+      return { success: false, tableId, reason: 'table_not_found' }
+    }
+    if (table.partialPayments && table.partialPayments.length > 0) {
+      return { success: false, tableId, reason: 'existing_payments' }
+    }
+    if (table.splitPayment) {
+      return { success: false, tableId, reason: 'active_split_present' }
+    }
+    if (!table.discount) {
+      return { success: false, tableId, reason: 'discount_not_found' }
+    }
+
+    table.discount = undefined
+    saveTables()
+    return { success: true, tableId }
+  }
+
+  function completeComplimentaryTable(tableId: string): CompleteComplimentaryTableResult {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) {
+      return { success: false, tableId, reason: 'table_not_found' }
+    }
+    if (table.orders.length === 0) {
+      return { success: false, tableId, reason: 'table_has_no_orders' }
+    }
+    if (table.partialPayments && table.partialPayments.length > 0) {
+      return { success: false, tableId, reason: 'existing_payments' }
+    }
+    if (table.splitPayment) {
+      return { success: false, tableId, reason: 'active_split_present' }
+    }
+
+    const gross = getTableGrossTotalCents(tableId)
+    const discountAmount = getTableDiscountCents(tableId)
+    const net = getTableNetTotalCents(tableId)
+
+    if (discountAmount !== gross || net !== 0) {
+      return { success: false, tableId, reason: 'complimentary_checkout_not_allowed' }
+    }
+
+    executeTableCheckout(table, [], 0, 'complimentary')
+    return { success: true, tableId }
   }
 
   function registerTablePayment(input: {
@@ -883,7 +1119,7 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, reason: 'table_has_no_orders' }
     }
 
-    const totalCents = getTableTotalCents(tableId)
+    const totalCents = getTableNetTotalCents(tableId)
     if (totalCents <= 0) {
       return { success: false, tableId, reason: 'table_has_no_orders' }
     }
@@ -1263,6 +1499,8 @@ export const useMesasStore = defineStore('mesas', () => {
         id: `person-${i + 1}-${Math.random().toString(36).substr(2, 5)}`,
         label: `Persona ${i + 1}`,
         allocations: [],
+        grossAmountCents: 0,
+        discountAmountCents: 0,
         amountCents: 0,
         status: 'pending'
       })
@@ -1463,10 +1701,54 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, reason: 'amount_mismatch' }
     }
 
-    table.splitPayment.status = 'confirmed'
-    table.splitPayment.people.forEach(p => {
-      p.amountCents = p.allocations.reduce((sum, a) => sum + a.amountCents, 0)
+    const totalNetCents = getTableNetTotalCents(tableId)
+    const totalGrossCents = getTableGrossTotalCents(tableId)
+
+    const baseShares = table.splitPayment.people.map((person, index) => {
+      const personGrossCents = person.allocations.reduce((sum, a) => sum + a.amountCents, 0)
+      const numerator = personGrossCents * totalNetCents
+      const base = Math.floor(numerator / totalGrossCents)
+      const remainder = numerator % totalGrossCents
+      return {
+        personId: person.id,
+        grossAmountCents: personGrossCents,
+        base,
+        remainder,
+        index
+      }
     })
+
+    const sumaCuotasBase = baseShares.reduce((sum, s) => sum + s.base, 0)
+    const centimosRestantes = totalNetCents - sumaCuotasBase
+
+    const sortedShares = [...baseShares]
+    sortedShares.sort((a, b) => {
+      if (b.remainder !== a.remainder) {
+        return b.remainder - a.remainder
+      }
+      return a.index - b.index
+    })
+
+    for (let k = 0; k < centimosRestantes; k++) {
+      sortedShares[k].base += 1
+    }
+
+    const resultsMap = new Map(sortedShares.map(s => [s.personId, s]))
+
+    table.splitPayment.people.forEach(p => {
+      const result = resultsMap.get(p.id)
+      if (result) {
+        p.grossAmountCents = result.grossAmountCents
+        p.discountAmountCents = result.grossAmountCents - result.base
+        p.amountCents = result.base
+      } else {
+        p.grossAmountCents = 0
+        p.discountAmountCents = 0
+        p.amountCents = 0
+      }
+    })
+
+    table.splitPayment.status = 'confirmed'
 
     saveTables()
     return { success: true, tableId }
@@ -1513,14 +1795,32 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'manual_verification_required' }
     }
 
-    // Verify amountCents matches allocations sum
+    // Verify amountCents is gross - discount
+    if (person.amountCents !== person.grossAmountCents - person.discountAmountCents) {
+      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'net_amount_mismatch' }
+    }
+
+    // Verify grossAmountCents matches allocations sum
     const allocationsSum = person.allocations.reduce((sum, a) => sum + a.amountCents, 0)
-    if (allocationsSum !== person.amountCents) {
-      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'amount_mismatch' }
+    if (allocationsSum !== person.grossAmountCents) {
+      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'net_amount_mismatch' }
+    }
+
+    // Verify global invariants
+    const totalGross = getTableGrossTotalCents(tableId)
+    const totalDiscount = getTableDiscountCents(tableId)
+    const totalNet = getTableNetTotalCents(tableId)
+
+    const sumGross = table.splitPayment.people.reduce((sum, p) => sum + p.grossAmountCents, 0)
+    const sumDiscount = table.splitPayment.people.reduce((sum, p) => sum + p.discountAmountCents, 0)
+    const sumNet = table.splitPayment.people.reduce((sum, p) => sum + p.amountCents, 0)
+
+    if (sumGross !== totalGross || sumDiscount !== totalDiscount || sumNet !== totalNet) {
+      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'net_amount_mismatch' }
     }
 
     const amountCents = person.amountCents
-    const totalCents = getTableTotalCents(tableId)
+    const totalCents = getTableNetTotalCents(tableId)
     const paidCentsBefore = getTablePaidCents(tableId)
     const remainingCentsBefore = getTableRemainingCents(tableId)
 
@@ -1613,7 +1913,13 @@ export const useMesasStore = defineStore('mesas', () => {
     getNormalizedTables,
     moveTableAccount,
     registerTablePayment,
+    applyTableDiscount,
+    removeTableDiscount,
+    completeComplimentaryTable,
     getTableTotalCents,
+    getTableGrossTotalCents,
+    getTableDiscountCents,
+    getTableNetTotalCents,
     getTablePaidCents,
     getTableRemainingCents,
     createEqualSplit,
