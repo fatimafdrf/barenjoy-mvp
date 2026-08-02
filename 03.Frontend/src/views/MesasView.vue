@@ -1155,13 +1155,21 @@
             <div
               v-for="p in selectedTable.partialPayments"
               :key="p.id"
-              class="flex justify-between items-center text-[11px] bg-slate-50 border border-slate-100 p-2 rounded-xl"
+              class="flex flex-col justify-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[10px] space-y-1"
             >
-              <div class="flex items-center gap-1.5 text-slate-600">
-                <i :class="p.method === 'cash' ? 'pi pi-wallet text-emerald-500' : 'pi pi-credit-card text-indigo-500'"></i>
-                <span class="font-bold uppercase text-[9px]">{{ p.method === 'cash' ? 'Efectivo' : 'Tarjeta' }}</span>
+              <div class="flex justify-between items-center w-full">
+                <div class="flex items-center gap-1.5 text-slate-600">
+                  <i :class="p.method === 'cash' ? 'pi pi-wallet text-emerald-500' : p.method === 'bizum' ? 'pi pi-mobile text-[#9235DF]' : 'pi pi-credit-card text-indigo-500'"></i>
+                  <span class="font-bold uppercase text-[9px]">
+                    {{ p.method === 'cash' ? 'Efectivo' : p.method === 'bizum' ? 'Bizum' : 'Tarjeta' }}
+                  </span>
+                </div>
+                <span class="font-black text-slate-700 text-xs">{{ (p.amountCents / 100).toFixed(2) }} €</span>
               </div>
-              <span class="font-black text-slate-700">{{ (p.amountCents / 100).toFixed(2) }} €</span>
+              <span v-if="p.method === 'bizum' && p.verifiedManually" class="text-[8px] text-[#9235DF] font-bold block leading-none flex items-center gap-0.5">
+                <i class="pi pi-check text-[7px]"></i>
+                <span>Verificado manualmente</span>
+              </span>
             </div>
           </div>
         </div>
@@ -1207,9 +1215,11 @@
             <div v-if="activeShareToPay" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
               <div class="flex justify-between items-center">
                 <span class="text-xs font-black text-slate-700">Cobrar {{ activeShareToPay.label }} ({{ (activeShareToPay.amountCents / 100).toFixed(2) }} €)</span>
-                <button @click="activeShareToPay = null" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+                <button @click="activeShareToPay = null; resetBizum()" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
               </div>
-              <div class="grid grid-cols-2 gap-3">
+
+              <!-- Main Method selection -->
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'share')" class="grid grid-cols-3 gap-2">
                 <button
                   @click="confirmPayShare('card')"
                   :disabled="processingShareId !== null"
@@ -1226,6 +1236,36 @@
                   <i class="pi pi-wallet"></i>
                   <span>Efectivo</span>
                 </button>
+                <button
+                  @click="bizumVerificationType = 'share'; bizumVerificationActive = true"
+                  :disabled="processingShareId !== null"
+                  class="flex justify-center items-center gap-1.5 py-2 bg-[#9235DF]/5 hover:bg-[#9235DF]/10 text-[#9235DF] text-xs font-bold rounded-xl border border-[#9235DF]/20 cursor-pointer disabled:opacity-50"
+                >
+                  <i class="pi pi-mobile"></i>
+                  <span>Bizum</span>
+                </button>
+              </div>
+
+              <!-- Bizum Manual Verification sub-card -->
+              <div v-else class="p-3 bg-white rounded-xl border border-slate-100 space-y-2.5 animate-in fade-in duration-200">
+                <p class="text-[10px] text-slate-500 font-bold text-center leading-tight">
+                  Confirma que has verificado la recepción del Bizum antes de continuar.
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    @click="confirmPayShare('bizum', true); resetBizum()"
+                    :disabled="processingShareId !== null"
+                    class="flex-1 py-1.5 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer"
+                  >
+                    Confirmar cobro
+                  </button>
+                  <button
+                    @click="resetBizum"
+                    class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1419,9 +1459,11 @@
               <div v-if="activePersonToPay" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
                 <div class="flex justify-between items-center">
                   <span class="text-xs font-black text-slate-700">Cobrar {{ activePersonToPay.label }} ({{ (activePersonToPay.amountCents / 100).toFixed(2) }} €)</span>
-                  <button @click="activePersonToPay = null" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+                  <button @click="activePersonToPay = null; resetBizum()" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+
+                <!-- Main Method selection -->
+                <div v-if="!(bizumVerificationActive && bizumVerificationType === 'person')" class="grid grid-cols-3 gap-2">
                   <button
                     @click="confirmPayPerson('card')"
                     :disabled="processingPersonId !== null"
@@ -1438,6 +1480,36 @@
                     <i class="pi pi-wallet"></i>
                     <span>Efectivo</span>
                   </button>
+                  <button
+                    @click="bizumVerificationType = 'person'; bizumVerificationActive = true"
+                    :disabled="processingPersonId !== null"
+                    class="flex justify-center items-center gap-1.5 py-2 bg-[#9235DF]/5 hover:bg-[#9235DF]/10 text-[#9235DF] text-xs font-bold rounded-xl border border-[#9235DF]/20 cursor-pointer disabled:opacity-50"
+                  >
+                    <i class="pi pi-mobile"></i>
+                    <span>Bizum</span>
+                  </button>
+                </div>
+
+                <!-- Bizum Manual Verification sub-card -->
+                <div v-else class="p-3 bg-white rounded-xl border border-slate-100 space-y-2.5 animate-in fade-in duration-200">
+                  <p class="text-[10px] text-slate-500 font-bold text-center leading-tight">
+                    Confirma que has verificado la recepción del Bizum antes de continuar.
+                  </p>
+                  <div class="flex gap-2">
+                    <button
+                      @click="confirmPayPerson('bizum', true); resetBizum()"
+                      :disabled="processingPersonId !== null"
+                      class="flex-1 py-1.5 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer"
+                    >
+                      Confirmar cobro
+                    </button>
+                    <button
+                      @click="resetBizum"
+                      class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1491,25 +1563,55 @@
           <!-- Mode content -->
           <div v-if="checkoutTab === 'complete'" class="space-y-4">
             <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
-            <div class="grid grid-cols-2 gap-4">
+            <div v-if="!(bizumVerificationActive && bizumVerificationType === 'complete')" class="grid grid-cols-3 gap-3">
               <button
                 @click="handleDirectPayment('card')"
-                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
               >
-                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
                   <i class="pi pi-credit-card"></i>
                 </div>
-                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
+                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
               </button>
               <button
                 @click="handleDirectPayment('cash')"
-                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
               >
-                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                   <i class="pi pi-wallet"></i>
                 </div>
-                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
+                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
               </button>
+              <button
+                @click="bizumVerificationType = 'complete'; bizumVerificationActive = true"
+                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              >
+                <div class="w-9 h-9 rounded-full bg-[#9235DF]/10 text-[#9235DF] flex items-center justify-center border border-[#9235DF]/20 group-hover:scale-105 transition-transform">
+                  <i class="pi pi-mobile"></i>
+                </div>
+                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
+              </button>
+            </div>
+
+            <!-- Bizum Manual Verification sub-card -->
+            <div v-else class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+              <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
+                Confirma que has verificado la recepción del Bizum antes de continuar.
+              </p>
+              <div class="flex gap-2">
+                <button
+                  @click="handleDirectPayment('bizum', true); resetBizum()"
+                  class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  Confirmar cobro
+                </button>
+                <button
+                  @click="resetBizum"
+                  class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1519,31 +1621,62 @@
               <input
                 type="text"
                 v-model="paymentAmountInput"
+                :disabled="bizumVerificationActive && bizumVerificationType === 'partial'"
                 placeholder="Ej: 20.50"
-                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A] disabled:opacity-50"
               />
               <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div v-if="!(bizumVerificationActive && bizumVerificationType === 'partial')" class="grid grid-cols-3 gap-3">
               <button
                 @click="handleCustomPayment('card')"
-                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
               >
-                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:scale-105 transition-transform">
                   <i class="pi pi-credit-card"></i>
                 </div>
-                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar con Tarjeta</span>
+                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
               </button>
               <button
                 @click="handleCustomPayment('cash')"
-                class="flex flex-col items-center gap-3 p-4 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
               >
-                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                   <i class="pi pi-wallet"></i>
                 </div>
-                <span class="text-xs font-bold text-slate-600 group-hover:text-[#9235DF]">Pagar en Efectivo</span>
+                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Efectivo</span>
               </button>
+              <button
+                @click="triggerPartialBizum"
+                class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
+              >
+                <div class="w-9 h-9 rounded-full bg-[#9235DF]/10 text-[#9235DF] flex items-center justify-center border border-[#9235DF]/20 group-hover:scale-105 transition-transform">
+                  <i class="pi pi-mobile"></i>
+                </div>
+                <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
+              </button>
+            </div>
+
+            <!-- Bizum Manual Verification sub-card -->
+            <div v-else class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+              <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
+                Confirma que has verificado la recepción del Bizum antes de continuar.
+              </p>
+              <div class="flex gap-2">
+                <button
+                  @click="handleCustomPayment('bizum', true); resetBizum()"
+                  class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  Confirmar cobro
+                </button>
+                <button
+                  @click="resetBizum"
+                  class="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1719,7 +1852,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useMesasStore, type Table, type NormalizedTable } from '../stores/mesas'
+import { useMesasStore, type Table, type NormalizedTable, type PaymentMethod } from '../stores/mesas'
 import { useCartaStore, type MenuItem } from '../stores/carta'
 import { useLocalesStore } from '../stores/locales'
 
@@ -1752,6 +1885,13 @@ const activeShareToPay = ref<any | null>(null)
 
 const processingPersonId = ref<string | null>(null)
 const activePersonToPay = ref<any | null>(null)
+
+const bizumVerificationActive = ref(false)
+const bizumVerificationType = ref<'complete' | 'partial' | 'share' | 'person' | null>(null)
+const resetBizum = () => {
+  bizumVerificationActive.value = false
+  bizumVerificationType.value = null
+}
 
 const decrementPeopleCount = () => {
   if (splitPeopleInput.value > 2) {
@@ -1860,6 +2000,17 @@ const handleConfirmProductSplit = () => {
   }
 }
 
+const triggerPartialBizum = () => {
+  paymentAmountInputError.value = ''
+  const parseRes = parseAmountInput(paymentAmountInput.value)
+  if (parseRes.error) {
+    paymentAmountInputError.value = parseRes.error
+    return
+  }
+  bizumVerificationType.value = 'partial'
+  bizumVerificationActive.value = true
+}
+
 const handleCancelProductSplit = () => {
   if (!selectedTable.value) return
   paymentAmountInputError.value = ''
@@ -1873,10 +2024,11 @@ const handleCancelProductSplit = () => {
 }
 
 const startPayPerson = (person: any) => {
+  resetBizum()
   activePersonToPay.value = person
 }
 
-const confirmPayPerson = (method: 'card' | 'cash') => {
+const confirmPayPerson = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value || !activePersonToPay.value) return
   const personId = activePersonToPay.value.id
   processingPersonId.value = personId
@@ -1884,7 +2036,8 @@ const confirmPayPerson = (method: 'card' | 'cash') => {
   const res = mesasStore.payProductSplitPerson({
     tableId: selectedTable.value.id,
     personId,
-    method
+    method,
+    verifiedManually
   })
 
   setTimeout(() => {
@@ -1908,10 +2061,11 @@ const confirmPayPerson = (method: 'card' | 'cash') => {
 }
 
 const startPayShare = (share: any) => {
+  resetBizum()
   activeShareToPay.value = share
 }
 
-const confirmPayShare = (method: 'card' | 'cash') => {
+const confirmPayShare = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value || !activeShareToPay.value) return
   const shareId = activeShareToPay.value.id
   processingShareId.value = shareId
@@ -1919,7 +2073,8 @@ const confirmPayShare = (method: 'card' | 'cash') => {
   const res = mesasStore.paySplitShare({
     tableId: selectedTable.value.id,
     shareId,
-    method
+    method,
+    verifiedManually
   })
 
   setTimeout(() => {
@@ -1978,6 +2133,11 @@ watch(selectedTable, () => {
   isPartialMode.value = false
   paymentAmountInput.value = ''
   paymentAmountInputError.value = ''
+  resetBizum()
+})
+
+watch(checkoutTab, () => {
+  resetBizum()
 })
 
 // Interactive Ficha Modal states
@@ -2725,13 +2885,14 @@ const parseAmountInput = (val: string): { cents: number; error?: string } => {
   return { cents: totalCents }
 }
 
-const handleDirectPayment = (method: 'card' | 'cash') => {
+const handleDirectPayment = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value) return
   const remainingCents = mesasStore.getTableRemainingCents(selectedTable.value.id)
   const res = mesasStore.registerTablePayment({
     tableId: selectedTable.value.id,
     amountCents: remainingCents,
-    method
+    method,
+    verifiedManually
   })
 
   if (res.success) {
@@ -2749,7 +2910,7 @@ const handleDirectPayment = (method: 'card' | 'cash') => {
   }
 }
 
-const handleCustomPayment = (method: 'card' | 'cash') => {
+const handleCustomPayment = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value) return
   paymentAmountInputError.value = ''
 
@@ -2763,7 +2924,8 @@ const handleCustomPayment = (method: 'card' | 'cash') => {
   const res = mesasStore.registerTablePayment({
     tableId: selectedTable.value.id,
     amountCents,
-    method
+    method,
+    verifiedManually
   })
 
   if (res.success) {

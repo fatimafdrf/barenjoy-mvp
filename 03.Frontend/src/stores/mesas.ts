@@ -30,13 +30,14 @@ export interface ServiceZone {
   order: number
 }
 
-export type PaymentMethod = 'cash' | 'card'
+export type PaymentMethod = 'cash' | 'card' | 'bizum'
 
 export interface PartialPayment {
   id: string
   amountCents: number
   method: PaymentMethod
   createdAt: string
+  verifiedManually?: boolean
 }
 
 export interface CompletedPayment {
@@ -44,6 +45,7 @@ export interface CompletedPayment {
   amountCents: number
   method: PaymentMethod
   createdAt: string
+  verifiedManually?: boolean
 }
 
 export interface SplitShare {
@@ -189,6 +191,7 @@ export interface CheckoutPaymentResult {
     | 'amount_exceeds_remaining'
     | 'invalid_payment_method'
     | 'already_paid'
+    | 'manual_verification_required'
 }
 
 export interface CreateEqualSplitResult {
@@ -223,6 +226,7 @@ export interface PaySplitShareResult {
     | 'already_paid'
     | 'amount_mismatch'
     | 'invalid_split_mode'
+    | 'manual_verification_required'
 }
 
 export interface CancelEqualSplitResult {
@@ -315,6 +319,7 @@ export interface PayProductSplitPersonResult {
     | 'invalid_payment_method'
     | 'amount_mismatch'
     | 'already_paid'
+    | 'manual_verification_required'
 }
 
 export interface CancelProductSplitResult {
@@ -633,9 +638,14 @@ export const useMesasStore = defineStore('mesas', () => {
   }
 
   function executeTableCheckout(table: Table, allPayments: CompletedPayment[], totalCents: number) {
-    const isMixedPayment = allPayments.length > 1
-    const hasCard = allPayments.some(p => p.method === 'card')
-    const paymentMethodLegacy: 'card' | 'cash' | 'bizum' = hasCard ? 'card' : 'cash'
+    const uniqueMethods = new Set(allPayments.map(payment => payment.method))
+    const isMixedPayment = uniqueMethods.size > 1
+    let paymentMethodLegacy: 'card' | 'cash' | 'bizum' = 'card'
+    if (uniqueMethods.size === 1) {
+      paymentMethodLegacy = Array.from(uniqueMethods)[0]
+    } else {
+      paymentMethodLegacy = 'card'
+    }
 
     const now = new Date()
     const timestamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
@@ -734,8 +744,9 @@ export const useMesasStore = defineStore('mesas', () => {
     tableId: string
     amountCents: number
     method: PaymentMethod
+    verifiedManually?: boolean
   }): CheckoutPaymentResult {
-    const { tableId, amountCents, method } = input
+    const { tableId, amountCents, method, verifiedManually } = input
 
     const table = tables.value.find(t => t.id === tableId)
     if (!table) {
@@ -750,8 +761,12 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'already_paid' }
     }
 
-    if (method !== 'cash' && method !== 'card') {
+    if (method !== 'cash' && method !== 'card' && method !== 'bizum') {
       return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_payment_method' }
+    }
+
+    if (method === 'bizum' && verifiedManually !== true) {
+      return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'manual_verification_required' }
     }
 
     if (!Number.isInteger(amountCents) || amountCents <= 0) {
@@ -780,7 +795,8 @@ export const useMesasStore = defineStore('mesas', () => {
         id: paymentId,
         amountCents,
         method,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        ...(method === 'bizum' ? { verifiedManually: true } : {})
       }
 
       const nextTables: Table[] = tables.value.map(t => {
@@ -812,7 +828,8 @@ export const useMesasStore = defineStore('mesas', () => {
         id: paymentId,
         amountCents,
         method,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        ...(method === 'bizum' ? { verifiedManually: true } : {})
       }
       const allPayments: CompletedPayment[] = [...currentPayments, finalPayment]
 
@@ -829,7 +846,7 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
-  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash' | 'bizum'): boolean => {
+  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash' | 'bizum', verifiedManually?: boolean): boolean => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
       const { canCheckout } = canCheckoutTable(id)
@@ -837,11 +854,16 @@ export const useMesasStore = defineStore('mesas', () => {
         return false
       }
 
-      const method: PaymentMethod = paymentMethod === 'cash' ? 'cash' : 'card'
+      if (paymentMethod === 'bizum' && verifiedManually !== true) {
+        return false
+      }
+
+      const method: PaymentMethod = paymentMethod
       const res = registerTablePayment({
         tableId: id,
         amountCents: getTableRemainingCents(id),
-        method
+        method,
+        verifiedManually
       })
       return res.success
     }
@@ -931,8 +953,9 @@ export const useMesasStore = defineStore('mesas', () => {
     tableId: string
     shareId: string
     method: PaymentMethod
+    verifiedManually?: boolean
   }): PaySplitShareResult {
-    const { tableId, shareId, method } = input
+    const { tableId, shareId, method, verifiedManually } = input
 
     const table = tables.value.find(t => t.id === tableId)
     if (!table) {
@@ -956,8 +979,12 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'share_already_paid' }
     }
 
-    if (method !== 'cash' && method !== 'card') {
+    if (method !== 'cash' && method !== 'card' && method !== 'bizum') {
       return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_payment_method' }
+    }
+
+    if (method === 'bizum' && verifiedManually !== true) {
+      return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'manual_verification_required' }
     }
 
     const amountCents = share.amountCents
@@ -991,7 +1018,8 @@ export const useMesasStore = defineStore('mesas', () => {
       id: paymentId,
       amountCents,
       method,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...(method === 'bizum' ? { verifiedManually: true } : {})
     }
 
     const currentPayments = table.partialPayments ? [...table.partialPayments] : []
@@ -1464,8 +1492,9 @@ export const useMesasStore = defineStore('mesas', () => {
     tableId: string
     personId: string
     method: PaymentMethod
+    verifiedManually?: boolean
   }): PayProductSplitPersonResult {
-    const { tableId, personId, method } = input
+    const { tableId, personId, method, verifiedManually } = input
     const table = tables.value.find(t => t.id === tableId)
     if (!table) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_not_found' }
     if (!table.splitPayment) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'split_not_found' }
@@ -1475,8 +1504,13 @@ export const useMesasStore = defineStore('mesas', () => {
     const person = table.splitPayment.people.find(p => p.id === personId)
     if (!person) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'person_not_found' }
     if (person.status === 'paid') return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'person_already_paid' }
-    if (method !== 'cash' && method !== 'card') {
+
+    if (method !== 'cash' && method !== 'card' && method !== 'bizum') {
       return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_payment_method' }
+    }
+
+    if (method === 'bizum' && verifiedManually !== true) {
+      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'manual_verification_required' }
     }
 
     // Verify amountCents matches allocations sum
@@ -1512,7 +1546,8 @@ export const useMesasStore = defineStore('mesas', () => {
       id: paymentId,
       amountCents,
       method,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...(method === 'bizum' ? { verifiedManually: true } : {})
     }
 
     const currentPayments = table.partialPayments ? [...table.partialPayments] : []
