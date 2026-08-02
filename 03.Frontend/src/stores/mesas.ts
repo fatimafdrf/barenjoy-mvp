@@ -54,12 +54,41 @@ export interface SplitShare {
   paymentId?: string
 }
 
-export interface SplitPaymentInfo {
+export interface EqualSplitPaymentInfo {
   mode: 'equal'
   peopleCount: number
   createdAt: string
   shares: SplitShare[]
 }
+
+export interface ProductSplitAllocation {
+  id: string
+  orderItemId: string
+  quantity: number
+  unitPriceCents: number
+  amountCents: number
+}
+
+export interface ProductSplitPerson {
+  id: string
+  label: string
+  allocations: ProductSplitAllocation[]
+  amountCents: number
+  status: 'pending' | 'paid'
+  paymentId?: string
+}
+
+export interface ProductSplitPaymentInfo {
+  mode: 'products'
+  status: 'draft' | 'confirmed'
+  peopleCount: number
+  createdAt: string
+  people: ProductSplitPerson[]
+}
+
+export type SplitPaymentInfo =
+  | EqualSplitPaymentInfo
+  | ProductSplitPaymentInfo
 
 export interface Table {
   id: string
@@ -77,7 +106,7 @@ export interface Table {
   active?: boolean
   // Campo opcional Evolución 2.9A
   partialPayments?: PartialPayment[]
-  // Campo opcional Evolución 2.9B
+  // Campo opcional Evolución 2.9B & 2.9C
   splitPayment?: SplitPaymentInfo
 }
 
@@ -126,6 +155,22 @@ export interface CompletedOrder {
       label: string
       amountCents: number
       paymentId: string
+    }>
+  }
+  productSplitSummary?: {
+    mode: 'products'
+    peopleCount: number
+    people: Array<{
+      label: string
+      amountCents: number
+      paymentId: string
+      allocations: Array<{
+        orderItemId: string
+        productName: string
+        quantity: number
+        unitPriceCents: number
+        amountCents: number
+      }>
     }>
   }
 }
@@ -177,6 +222,7 @@ export interface PaySplitShareResult {
     | 'invalid_payment_method'
     | 'already_paid'
     | 'amount_mismatch'
+    | 'invalid_split_mode'
 }
 
 export interface CancelEqualSplitResult {
@@ -185,6 +231,99 @@ export interface CancelEqualSplitResult {
   reason?:
     | 'table_not_found'
     | 'split_not_found'
+    | 'split_has_payments'
+}
+
+export interface CreateProductSplitResult {
+  success: boolean
+  tableId: string
+  peopleCount?: number
+  reason?:
+    | 'table_not_found'
+    | 'table_has_no_orders'
+    | 'already_paid'
+    | 'existing_partial_payments'
+    | 'split_already_exists'
+    | 'invalid_people_count'
+    | 'too_many_people'
+}
+
+export interface AssignProductQuantityResult {
+  success: boolean
+  tableId: string
+  personId: string
+  orderItemId: string
+  reason?:
+    | 'table_not_found'
+    | 'split_not_found'
+    | 'invalid_split_mode'
+    | 'invalid_split_status'
+    | 'person_not_found'
+    | 'person_already_paid'
+    | 'order_item_not_found'
+    | 'invalid_quantity'
+    | 'quantity_exceeds_available'
+}
+
+export interface UnassignProductQuantityResult {
+  success: boolean
+  tableId: string
+  personId: string
+  orderItemId: string
+  reason?:
+    | 'table_not_found'
+    | 'split_not_found'
+    | 'invalid_split_mode'
+    | 'invalid_split_status'
+    | 'person_not_found'
+    | 'person_already_paid'
+    | 'allocation_not_found'
+    | 'invalid_quantity'
+    | 'quantity_exceeds_assigned'
+}
+
+export interface ConfirmProductSplitResult {
+  success: boolean
+  tableId: string
+  reason?:
+    | 'table_not_found'
+    | 'split_not_found'
+    | 'invalid_split_mode'
+    | 'invalid_split_status'
+    | 'unassigned_products'
+    | 'overassigned_products'
+    | 'person_has_no_allocations'
+    | 'amount_mismatch'
+    | 'existing_partial_payments'
+}
+
+export interface PayProductSplitPersonResult {
+  success: boolean
+  tableId: string
+  personId: string
+  paymentId?: string
+  paidAmountCents: number
+  remainingAmountCents: number
+  isFullyPaid: boolean
+  reason?:
+    | 'table_not_found'
+    | 'split_not_found'
+    | 'invalid_split_mode'
+    | 'invalid_split_status'
+    | 'person_not_found'
+    | 'person_already_paid'
+    | 'invalid_payment_method'
+    | 'amount_mismatch'
+    | 'already_paid'
+}
+
+export interface CancelProductSplitResult {
+  success: boolean
+  tableId: string
+  reason?:
+    | 'table_not_found'
+    | 'split_not_found'
+    | 'invalid_split_mode'
     | 'split_has_payments'
 }
 
@@ -504,15 +643,39 @@ export const useMesasStore = defineStore('mesas', () => {
     const totalInEuros = totalCents / 100
 
     let splitSummary: CompletedOrder['splitSummary'] = undefined
+    let productSplitSummary: CompletedOrder['productSplitSummary'] = undefined
     if (table.splitPayment) {
-      splitSummary = {
-        mode: 'equal',
-        peopleCount: table.splitPayment.peopleCount,
-        shares: table.splitPayment.shares.map(s => ({
-          label: s.label,
-          amountCents: s.amountCents,
-          paymentId: s.paymentId || ''
-        }))
+      if (table.splitPayment.mode === 'equal') {
+        splitSummary = {
+          mode: 'equal',
+          peopleCount: table.splitPayment.peopleCount,
+          shares: table.splitPayment.shares.map(s => ({
+            label: s.label,
+            amountCents: s.amountCents,
+            paymentId: s.paymentId || ''
+          }))
+        }
+      } else if (table.splitPayment.mode === 'products') {
+        productSplitSummary = {
+          mode: 'products',
+          peopleCount: table.splitPayment.peopleCount,
+          people: table.splitPayment.people.map(p => ({
+            label: p.label,
+            amountCents: p.amountCents,
+            paymentId: p.paymentId || '',
+            allocations: p.allocations.map(a => {
+              const item = table.orders.find(o => o.id === a.orderItemId)
+              const productName = item ? item.name : 'Producto desconocido'
+              return {
+                orderItemId: a.orderItemId,
+                productName,
+                quantity: a.quantity,
+                unitPriceCents: a.unitPriceCents,
+                amountCents: a.amountCents
+              }
+            })
+          }))
+        }
       }
     }
 
@@ -525,7 +688,8 @@ export const useMesasStore = defineStore('mesas', () => {
       timestamp,
       payments: allPayments,
       isMixedPayment,
-      splitSummary
+      splitSummary,
+      productSplitSummary
     })
     saveCompletedOrders()
 
@@ -580,6 +744,10 @@ export const useMesasStore = defineStore('mesas', () => {
 
     if (!table.orders || table.orders.length === 0) {
       return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_has_no_orders' }
+    }
+
+    if (table.splitPayment) {
+      return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'already_paid' }
     }
 
     if (method !== 'cash' && method !== 'card') {
@@ -775,6 +943,10 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'split_not_found' }
     }
 
+    if (table.splitPayment.mode !== 'equal') {
+      return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_split_mode' }
+    }
+
     const share = table.splitPayment.shares.find(s => s.id === shareId)
     if (!share) {
       return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'share_not_found' }
@@ -876,6 +1048,10 @@ export const useMesasStore = defineStore('mesas', () => {
     }
 
     if (!table.splitPayment) {
+      return { success: false, tableId, reason: 'split_not_found' }
+    }
+
+    if (table.splitPayment.mode !== 'equal') {
       return { success: false, tableId, reason: 'split_not_found' }
     }
 
@@ -1019,6 +1195,374 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
+  function getUnassignedQuantity(tableId: string, orderItemId: string): number {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return 0
+    const orderItem = table.orders.find(o => o.id === orderItemId)
+    if (!orderItem) return 0
+    const originalQuantity = orderItem.quantity
+    let assigned = 0
+    if (table.splitPayment && table.splitPayment.mode === 'products') {
+      table.splitPayment.people.forEach(p => {
+        const alloc = p.allocations.find(a => a.orderItemId === orderItemId)
+        if (alloc) {
+          assigned += alloc.quantity
+        }
+      })
+    }
+    const rem = originalQuantity - assigned
+    return rem < 0 ? 0 : rem
+  }
+
+  function createProductSplit(tableId: string, peopleCount: number): CreateProductSplitResult {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return { success: false, tableId, reason: 'table_not_found' }
+    if (!table.orders || table.orders.length === 0) return { success: false, tableId, reason: 'table_has_no_orders' }
+    const totalCents = getTableTotalCents(tableId)
+    if (totalCents <= 0) return { success: false, tableId, reason: 'table_has_no_orders' }
+    const remainingCents = getTableRemainingCents(tableId)
+    if (remainingCents === 0) return { success: false, tableId, reason: 'already_paid' }
+    if (table.partialPayments && table.partialPayments.length > 0) {
+      return { success: false, tableId, reason: 'existing_partial_payments' }
+    }
+    if (table.splitPayment) return { success: false, tableId, reason: 'split_already_exists' }
+    if (!Number.isInteger(peopleCount) || peopleCount < 2) return { success: false, tableId, reason: 'invalid_people_count' }
+    if (peopleCount > 20) return { success: false, tableId, reason: 'too_many_people' }
+
+    const people: ProductSplitPerson[] = []
+    for (let i = 0; i < peopleCount; i++) {
+      people.push({
+        id: `person-${i + 1}-${Math.random().toString(36).substr(2, 5)}`,
+        label: `Persona ${i + 1}`,
+        allocations: [],
+        amountCents: 0,
+        status: 'pending'
+      })
+    }
+
+    const nextTables: Table[] = tables.value.map(t => {
+      if (t.id === tableId) {
+        return {
+          ...t,
+          status: 'bill',
+          splitPayment: {
+            mode: 'products',
+            status: 'draft',
+            peopleCount,
+            createdAt: new Date().toISOString(),
+            people
+          }
+        } as Table
+      }
+      return t
+    })
+
+    tables.value = nextTables
+    saveTables()
+    return { success: true, tableId, peopleCount }
+  }
+
+  function assignProductQuantity(input: {
+    tableId: string
+    personId: string
+    orderItemId: string
+    quantity: number
+  }): AssignProductQuantityResult {
+    const { tableId, personId, orderItemId, quantity } = input
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return { success: false, tableId, personId, orderItemId, reason: 'table_not_found' }
+    if (!table.splitPayment) return { success: false, tableId, personId, orderItemId, reason: 'split_not_found' }
+    if (table.splitPayment.mode !== 'products') return { success: false, tableId, personId, orderItemId, reason: 'invalid_split_mode' }
+    if (table.splitPayment.status !== 'draft') return { success: false, tableId, personId, orderItemId, reason: 'invalid_split_status' }
+
+    const person = table.splitPayment.people.find(p => p.id === personId)
+    if (!person) return { success: false, tableId, personId, orderItemId, reason: 'person_not_found' }
+    if (person.status === 'paid') return { success: false, tableId, personId, orderItemId, reason: 'person_already_paid' }
+
+    const orderItem = table.orders.find(o => o.id === orderItemId)
+    if (!orderItem) return { success: false, tableId, personId, orderItemId, reason: 'order_item_not_found' }
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return { success: false, tableId, personId, orderItemId, reason: 'invalid_quantity' }
+    }
+
+    const available = getUnassignedQuantity(tableId, orderItemId)
+    if (quantity > available) {
+      return { success: false, tableId, personId, orderItemId, reason: 'quantity_exceeds_available' }
+    }
+
+    const unitPriceCents = Math.round(orderItem.price * 100)
+    const amountCents = unitPriceCents * quantity
+
+    const updatedPeople = table.splitPayment.people.map(p => {
+      if (p.id === personId) {
+        const existingAlloc = p.allocations.find(a => a.orderItemId === orderItemId)
+        let newAllocations = [...p.allocations]
+        if (existingAlloc) {
+          newAllocations = p.allocations.map(a => {
+            if (a.orderItemId === orderItemId) {
+              const nextQty = a.quantity + quantity
+              return {
+                ...a,
+                quantity: nextQty,
+                amountCents: a.unitPriceCents * nextQty
+              }
+            }
+            return a
+          })
+        } else {
+          newAllocations.push({
+            id: `alloc-${Math.random().toString(36).substr(2, 5)}`,
+            orderItemId,
+            quantity,
+            unitPriceCents,
+            amountCents
+          })
+        }
+
+        const sumCents = newAllocations.reduce((sum, a) => sum + a.amountCents, 0)
+        return {
+          ...p,
+          allocations: newAllocations,
+          amountCents: sumCents
+        }
+      }
+      return p
+    })
+
+    table.splitPayment.people = updatedPeople
+    saveTables()
+    return { success: true, tableId, personId, orderItemId }
+  }
+
+  function unassignProductQuantity(input: {
+    tableId: string
+    personId: string
+    orderItemId: string
+    quantity: number
+  }): UnassignProductQuantityResult {
+    const { tableId, personId, orderItemId, quantity } = input
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return { success: false, tableId, personId, orderItemId, reason: 'table_not_found' }
+    if (!table.splitPayment) return { success: false, tableId, personId, orderItemId, reason: 'split_not_found' }
+    if (table.splitPayment.mode !== 'products') return { success: false, tableId, personId, orderItemId, reason: 'invalid_split_mode' }
+    if (table.splitPayment.status !== 'draft') return { success: false, tableId, personId, orderItemId, reason: 'invalid_split_status' }
+
+    const person = table.splitPayment.people.find(p => p.id === personId)
+    if (!person) return { success: false, tableId, personId, orderItemId, reason: 'person_not_found' }
+    if (person.status === 'paid') return { success: false, tableId, personId, orderItemId, reason: 'person_already_paid' }
+
+    const alloc = person.allocations.find(a => a.orderItemId === orderItemId)
+    if (!alloc) return { success: false, tableId, personId, orderItemId, reason: 'allocation_not_found' }
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return { success: false, tableId, personId, orderItemId, reason: 'invalid_quantity' }
+    }
+    if (quantity > alloc.quantity) {
+      return { success: false, tableId, personId, orderItemId, reason: 'quantity_exceeds_assigned' }
+    }
+
+    const updatedPeople = table.splitPayment.people.map(p => {
+      if (p.id === personId) {
+        const newAllocations = p.allocations.map(a => {
+          if (a.orderItemId === orderItemId) {
+            const nextQty = a.quantity - quantity
+            return {
+              ...a,
+              quantity: nextQty,
+              amountCents: a.unitPriceCents * nextQty
+            }
+          }
+          return a
+        }).filter(a => a.quantity > 0)
+
+        const sumCents = newAllocations.reduce((sum, a) => sum + a.amountCents, 0)
+        return {
+          ...p,
+          allocations: newAllocations,
+          amountCents: sumCents
+        }
+      }
+      return p
+    })
+
+    table.splitPayment.people = updatedPeople
+    saveTables()
+    return { success: true, tableId, personId, orderItemId }
+  }
+
+  function confirmProductSplit(tableId: string): ConfirmProductSplitResult {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return { success: false, tableId, reason: 'table_not_found' }
+    if (!table.splitPayment) return { success: false, tableId, reason: 'split_not_found' }
+    if (table.splitPayment.mode !== 'products') return { success: false, tableId, reason: 'invalid_split_mode' }
+    if (table.splitPayment.status !== 'draft') return { success: false, tableId, reason: 'invalid_split_status' }
+
+    if (table.partialPayments && table.partialPayments.length > 0) {
+      return { success: false, tableId, reason: 'existing_partial_payments' }
+    }
+
+    // Verify all units are assigned
+    for (const item of table.orders) {
+      const unassigned = getUnassignedQuantity(tableId, item.id)
+      if (unassigned > 0) {
+        return { success: false, tableId, reason: 'unassigned_products' }
+      }
+      // Check overassignment
+      let totalAssigned = 0
+      table.splitPayment.people.forEach(p => {
+        const alloc = p.allocations.find(a => a.orderItemId === item.id)
+        if (alloc) totalAssigned += alloc.quantity
+      })
+      if (totalAssigned > item.quantity) {
+        return { success: false, tableId, reason: 'overassigned_products' }
+      }
+    }
+
+    // Check that every person has allocations and amountCents > 0
+    let totalCentsCalculated = 0
+    for (const p of table.splitPayment.people) {
+      if (!p.allocations || p.allocations.length === 0) {
+        return { success: false, tableId, reason: 'person_has_no_allocations' }
+      }
+      const sumAllocCents = p.allocations.reduce((sum, a) => sum + a.amountCents, 0)
+      if (sumAllocCents <= 0) {
+        return { success: false, tableId, reason: 'person_has_no_allocations' }
+      }
+      totalCentsCalculated += sumAllocCents
+    }
+
+    const totalCents = getTableTotalCents(tableId)
+    if (totalCentsCalculated !== totalCents) {
+      return { success: false, tableId, reason: 'amount_mismatch' }
+    }
+
+    table.splitPayment.status = 'confirmed'
+    table.splitPayment.people.forEach(p => {
+      p.amountCents = p.allocations.reduce((sum, a) => sum + a.amountCents, 0)
+    })
+
+    saveTables()
+    return { success: true, tableId }
+  }
+
+  function cancelProductSplit(tableId: string): CancelProductSplitResult {
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return { success: false, tableId, reason: 'table_not_found' }
+    if (!table.splitPayment) return { success: false, tableId, reason: 'split_not_found' }
+    if (table.splitPayment.mode !== 'products') return { success: false, tableId, reason: 'invalid_split_mode' }
+
+    const hasPayments = table.splitPayment.people.some(p => p.status === 'paid' || p.paymentId)
+    if (hasPayments) {
+      return { success: false, tableId, reason: 'split_has_payments' }
+    }
+
+    table.splitPayment = undefined
+    saveTables()
+    return { success: true, tableId }
+  }
+
+  function payProductSplitPerson(input: {
+    tableId: string
+    personId: string
+    method: PaymentMethod
+  }): PayProductSplitPersonResult {
+    const { tableId, personId, method } = input
+    const table = tables.value.find(t => t.id === tableId)
+    if (!table) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_not_found' }
+    if (!table.splitPayment) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'split_not_found' }
+    if (table.splitPayment.mode !== 'products') return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_split_mode' }
+    if (table.splitPayment.status !== 'confirmed') return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_split_status' }
+
+    const person = table.splitPayment.people.find(p => p.id === personId)
+    if (!person) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'person_not_found' }
+    if (person.status === 'paid') return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'person_already_paid' }
+    if (method !== 'cash' && method !== 'card') {
+      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_payment_method' }
+    }
+
+    // Verify amountCents matches allocations sum
+    const allocationsSum = person.allocations.reduce((sum, a) => sum + a.amountCents, 0)
+    if (allocationsSum !== person.amountCents) {
+      return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'amount_mismatch' }
+    }
+
+    const amountCents = person.amountCents
+    const totalCents = getTableTotalCents(tableId)
+    const paidCentsBefore = getTablePaidCents(tableId)
+    const remainingCentsBefore = getTableRemainingCents(tableId)
+
+    if (remainingCentsBefore === 0) {
+      return { success: false, tableId, personId, paidAmountCents: paidCentsBefore, remainingAmountCents: 0, isFullyPaid: true, reason: 'already_paid' }
+    }
+
+    const paymentId = 'pay-' + Math.random().toString(36).substr(2, 9)
+    const isLastPerson = table.splitPayment.people.filter(p => p.status === 'pending').length === 1
+
+    const updatedPeople = table.splitPayment.people.map(p => {
+      if (p.id === personId) {
+        return {
+          ...p,
+          status: 'paid',
+          paymentId
+        } as ProductSplitPerson
+      }
+      return p
+    })
+
+    const newPayment: PartialPayment = {
+      id: paymentId,
+      amountCents,
+      method,
+      createdAt: new Date().toISOString()
+    }
+
+    const currentPayments = table.partialPayments ? [...table.partialPayments] : []
+    const allPayments = [...currentPayments, newPayment]
+
+    if (!isLastPerson) {
+      const nextTables: Table[] = tables.value.map(t => {
+        if (t.id === tableId) {
+          return {
+            ...t,
+            status: 'bill',
+            partialPayments: allPayments,
+            splitPayment: {
+              ...t.splitPayment!,
+              people: updatedPeople
+            }
+          } as Table
+        }
+        return t
+      })
+
+      tables.value = nextTables
+      saveTables()
+
+      return {
+        success: true,
+        tableId,
+        personId,
+        paymentId,
+        paidAmountCents: paidCentsBefore + amountCents,
+        remainingAmountCents: remainingCentsBefore - amountCents,
+        isFullyPaid: false
+      }
+    } else {
+      // Snapshot people count and detail before clearing
+      table.splitPayment.people = updatedPeople
+      executeTableCheckout(table, allPayments, totalCents)
+
+      return {
+        success: true,
+        tableId,
+        personId,
+        paymentId,
+        paidAmountCents: totalCents,
+        remainingAmountCents: 0,
+        isFullyPaid: true
+      }
+    }
+  }
+
   return {
     tables,
     completedOrders,
@@ -1039,6 +1583,13 @@ export const useMesasStore = defineStore('mesas', () => {
     getTableRemainingCents,
     createEqualSplit,
     paySplitShare,
-    cancelEqualSplit
+    cancelEqualSplit,
+    getUnassignedQuantity,
+    createProductSplit,
+    assignProductQuantity,
+    unassignProductQuantity,
+    confirmProductSplit,
+    cancelProductSplit,
+    payProductSplitPerson
   }
 })

@@ -274,7 +274,7 @@
                     <span>Modificaciones bloqueadas</span>
                   </div>
                   <p class="text-[10px] text-amber-600/90 font-medium leading-relaxed">
-                    {{ hasActiveSplit ? 'La cuenta está dividida y ya no puede modificarse.' : 'La cuenta tiene pagos parciales y ya no puede modificarse.' }}
+                    {{ hasActiveSplit && selectedTable?.splitPayment?.mode === 'products' ? 'La cuenta está dividida por productos y ya no puede modificarse.' : hasActiveSplit ? 'La cuenta está dividida y ya no puede modificarse.' : 'La cuenta tiene pagos parciales y ya no puede modificarse.' }}
                   </p>
                 </div>
               </div>
@@ -454,7 +454,7 @@
                   <span>Modificaciones bloqueadas</span>
                 </div>
                 <p class="text-[10px] text-amber-600/90 font-medium leading-relaxed">
-                  {{ hasActiveSplit ? 'La cuenta está dividida y ya no puede modificarse.' : 'La cuenta tiene pagos parciales y ya no puede modificarse.' }}
+                  {{ hasActiveSplit && selectedTable?.splitPayment?.mode === 'products' ? 'La cuenta está dividida por productos y ya no puede modificarse.' : hasActiveSplit ? 'La cuenta está dividida y ya no puede modificarse.' : 'La cuenta tiene pagos parciales y ya no puede modificarse.' }}
                 </p>
               </div>
             </div>
@@ -1168,78 +1168,294 @@
 
         <!-- SPLIT PAYMENT VIEW (When splitPayment is active) -->
         <div v-if="selectedTable && selectedTable.splitPayment" class="space-y-4">
-          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Reparto entre comensales</span>
-          <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
-            <div
-              v-for="share in selectedTable.splitPayment.shares"
-              :key="share.id"
-              class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-2xl"
-            >
-              <div class="space-y-0.5">
-                <span class="font-bold text-xs text-[#08071A]">{{ share.label }}</span>
-                <span class="text-[10px] text-slate-400 font-mono block">{{ (share.amountCents / 100).toFixed(2) }} €</span>
-              </div>
-              <div>
-                <span v-if="share.status === 'paid'" class="text-emerald-600 text-xs font-black flex items-center gap-1">
-                  <i class="pi pi-check-circle"></i>
-                  <span>PAGADO</span>
-                </span>
-                <div v-else class="flex items-center gap-2">
-                  <button
-                    v-if="processingShareId !== share.id"
-                    @click="startPayShare(share)"
-                    class="px-3 py-1 bg-[#9235DF] hover:bg-[#9235DF]/90 text-white text-xs font-bold rounded-lg transition-all cursor-pointer active:scale-95"
-                  >
-                    Cobrar
-                  </button>
-                  <span v-else class="text-[#9235DF] text-xs font-bold flex items-center gap-1.5 animate-pulse">
-                    <i class="pi pi-spin pi-spinner text-xs"></i>
-                    <span>Procesando...</span>
+          <!-- 1. EQUAL SPLIT DISPLAY -->
+          <div v-if="selectedTable.splitPayment.mode === 'equal'" class="space-y-4">
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Reparto entre comensales</span>
+            <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+              <div
+                v-for="share in selectedTable.splitPayment.shares"
+                :key="share.id"
+                class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-2xl"
+              >
+                <div class="space-y-0.5">
+                  <span class="font-bold text-xs text-[#08071A]">{{ share.label }}</span>
+                  <span class="text-[10px] text-slate-400 font-mono block">{{ (share.amountCents / 100).toFixed(2) }} €</span>
+                </div>
+                <div>
+                  <span v-if="share.status === 'paid'" class="text-emerald-600 text-xs font-black flex items-center gap-1">
+                    <i class="pi pi-check-circle"></i>
+                    <span>PAGADO</span>
                   </span>
+                  <div v-else class="flex items-center gap-2">
+                    <button
+                      v-if="processingShareId !== share.id"
+                      @click="startPayShare(share)"
+                      class="px-3 py-1 bg-[#9235DF] hover:bg-[#9235DF]/90 text-white text-xs font-bold rounded-lg transition-all cursor-pointer active:scale-95"
+                    >
+                      Cobrar
+                    </button>
+                    <span v-else class="text-[#9235DF] text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                      <i class="pi pi-spin pi-spinner text-xs"></i>
+                      <span>Procesando...</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <!-- Sub-dialog for payment method confirmation of a single share -->
+            <div v-if="activeShareToPay" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-black text-slate-700">Cobrar {{ activeShareToPay.label }} ({{ (activeShareToPay.amountCents / 100).toFixed(2) }} €)</span>
+                <button @click="activeShareToPay = null" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  @click="confirmPayShare('card')"
+                  :disabled="processingShareId !== null"
+                  class="flex justify-center items-center gap-1.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 cursor-pointer disabled:opacity-50"
+                >
+                  <i class="pi pi-credit-card"></i>
+                  <span>Tarjeta</span>
+                </button>
+                <button
+                  @click="confirmPayShare('cash')"
+                  :disabled="processingShareId !== null"
+                  class="flex justify-center items-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 cursor-pointer disabled:opacity-50"
+                >
+                  <i class="pi pi-wallet"></i>
+                  <span>Efectivo</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Cancellation option -->
+            <div class="pt-4 border-t border-slate-100 flex justify-between items-center gap-2">
+              <button
+                type="button"
+                @click="handleCancelSplit"
+                :disabled="selectedTable.splitPayment.shares.some(s => s.status === 'paid')"
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 disabled:text-slate-400 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Cancelar división
+              </button>
+              <p v-if="selectedTable.splitPayment.shares.some(s => s.status === 'paid')" class="text-[10px] text-slate-400 font-semibold italic text-right leading-tight flex-1">
+                No se puede cancelar la división porque ya existen pagos registrados.
+              </p>
+            </div>
           </div>
 
-          <!-- Sub-dialog for payment method confirmation of a single share -->
-          <div v-if="activeShareToPay" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
-            <div class="flex justify-between items-center">
-              <span class="text-xs font-black text-slate-700">Cobrar {{ activeShareToPay.label }} ({{ (activeShareToPay.amountCents / 100).toFixed(2) }} €)</span>
-              <button @click="activeShareToPay = null" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <button
-                @click="confirmPayShare('card')"
-                :disabled="processingShareId !== null"
-                class="flex justify-center items-center gap-1.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 cursor-pointer disabled:opacity-50"
-              >
-                <i class="pi pi-credit-card"></i>
-                <span>Tarjeta</span>
-              </button>
-              <button
-                @click="confirmPayShare('cash')"
-                :disabled="processingShareId !== null"
-                class="flex justify-center items-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 cursor-pointer disabled:opacity-50"
-              >
-                <i class="pi pi-wallet"></i>
-                <span>Efectivo</span>
-              </button>
-            </div>
-          </div>
+          <!-- 2. PRODUCT SPLIT DISPLAY -->
+          <div v-else-if="selectedTable.splitPayment.mode === 'products'" class="space-y-4">
+            <!-- Draft view for assignments -->
+            <div v-if="selectedTable.splitPayment.status === 'draft'" class="space-y-4">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Asignación de productos por persona</span>
 
-          <!-- Cancellation option -->
-          <div class="pt-4 border-t border-slate-100 flex justify-between items-center gap-2">
-            <button
-              type="button"
-              @click="handleCancelSplit"
-              :disabled="selectedTable.splitPayment.shares.some(s => s.status === 'paid')"
-              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 disabled:text-slate-400 text-xs font-bold rounded-xl transition-all cursor-pointer"
-            >
-              Cancelar división
-            </button>
-            <p v-if="selectedTable.splitPayment.shares.some(s => s.status === 'paid')" class="text-[10px] text-slate-400 font-semibold italic text-right leading-tight flex-1">
-              No se puede cancelar la división porque ya existen pagos registrados.
-            </p>
+              <!-- Desktop Matrix View -->
+              <div class="hidden sm:block overflow-x-auto border border-slate-100 rounded-2xl max-h-72">
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100 font-bold text-slate-500">
+                      <th class="p-3">Producto</th>
+                      <th v-for="p in selectedTable.splitPayment.people" :key="p.id" class="p-3 text-center w-24">
+                        {{ p.label }}
+                      </th>
+                      <th class="p-3 text-right text-amber-600 font-black">Sin Asignar</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-semibold text-slate-700">
+                    <tr v-for="item in selectedTable.orders" :key="item.id" class="hover:bg-slate-50/50">
+                      <td class="p-3">
+                        <div class="font-bold text-[#08071A]">{{ item.name }}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">{{ (item.price).toFixed(2) }} € x {{ item.quantity }}</div>
+                      </td>
+                      <td v-for="p in selectedTable.splitPayment.people" :key="p.id" class="p-3 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            @click="handleUnassignProduct(p.id, item.id, 1)"
+                            :disabled="!(p.allocations.find(a => a.orderItemId === item.id)?.quantity)"
+                            class="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <i class="pi pi-minus text-[8px]"></i>
+                          </button>
+                          <span class="font-black text-xs min-w-[12px]">
+                            {{ p.allocations.find(a => a.orderItemId === item.id)?.quantity || 0 }}
+                          </span>
+                          <button
+                            type="button"
+                            @click="handleAssignProduct(p.id, item.id, 1)"
+                            :disabled="mesasStore.getUnassignedQuantity(selectedTable.id, item.id) <= 0"
+                            class="w-5 h-5 rounded-md bg-[#9235DF]/10 hover:bg-[#9235DF]/20 text-[#9235DF] flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <i class="pi pi-plus text-[8px]"></i>
+                          </button>
+                        </div>
+                      </td>
+                      <td class="p-3 text-right font-black text-amber-600">
+                        {{ mesasStore.getUnassignedQuantity(selectedTable.id, item.id) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Mobile Card View -->
+              <div class="block sm:hidden space-y-3 max-h-72 overflow-y-auto pr-1">
+                <div
+                  v-for="item in selectedTable.orders"
+                  :key="item.id"
+                  class="bg-slate-50 border border-slate-100 p-3 rounded-2xl space-y-2.5"
+                >
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <span class="font-bold text-xs text-[#08071A]">{{ item.name }}</span>
+                      <span class="text-[10px] text-slate-400 font-mono block">{{ (item.price).toFixed(2) }} € x {{ item.quantity }}</span>
+                    </div>
+                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                      Sin asignar: {{ mesasStore.getUnassignedQuantity(selectedTable.id, item.id) }}
+                    </span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
+                    <div
+                      v-for="p in selectedTable.splitPayment.people"
+                      :key="p.id"
+                      class="flex items-center justify-between bg-white border border-slate-100 p-1.5 rounded-xl"
+                    >
+                      <span class="text-[10px] font-bold text-slate-500">{{ p.label }}</span>
+                      <div class="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          @click="handleUnassignProduct(p.id, item.id, 1)"
+                          :disabled="!(p.allocations.find(a => a.orderItemId === item.id)?.quantity)"
+                          class="w-4 h-4 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <i class="pi pi-minus text-[7px]"></i>
+                        </button>
+                        <span class="font-bold text-xs">
+                          {{ p.allocations.find(a => a.orderItemId === item.id)?.quantity || 0 }}
+                        </span>
+                        <button
+                          type="button"
+                          @click="handleAssignProduct(p.id, item.id, 1)"
+                          :disabled="mesasStore.getUnassignedQuantity(selectedTable.id, item.id) <= 0"
+                          class="w-4 h-4 rounded-md bg-[#9235DF]/10 hover:bg-[#9235DF]/20 text-[#9235DF] flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <i class="pi pi-plus text-[7px]"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Subtotal Preview -->
+              <div class="bg-slate-50 border border-slate-100 p-3 rounded-2xl space-y-2">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Previsualización de cuentas</span>
+                <div class="grid grid-cols-2 gap-2 max-h-24 overflow-y-auto pr-1">
+                  <div v-for="p in selectedTable.splitPayment.people" :key="p.id" class="flex justify-between items-center text-[10px] bg-white border border-slate-100 p-2 rounded-xl">
+                    <span class="font-bold text-slate-600">{{ p.label }}</span>
+                    <span class="font-black text-slate-800">{{ (p.allocations.reduce((sum, a) => sum + a.amountCents, 0) / 100).toFixed(2) }} €</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Confirmation and cancel controls -->
+              <div class="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  @click="handleCancelSplit"
+                  class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 text-center"
+                >
+                  Cancelar división
+                </button>
+                <button
+                  type="button"
+                  @click="handleConfirmProductSplit"
+                  class="flex-1 py-2 bg-[#9235DF] hover:bg-[#9235DF]/95 text-white text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 text-center"
+                >
+                  Confirmar Reparto
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirmed view for payment -->
+            <div v-else-if="selectedTable.splitPayment.status === 'confirmed'" class="space-y-4">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Cobro por Persona</span>
+              <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div
+                  v-for="person in selectedTable.splitPayment.people"
+                  :key="person.id"
+                  class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-2xl"
+                >
+                  <div class="space-y-0.5">
+                    <span class="font-bold text-xs text-[#08071A]">{{ person.label }}</span>
+                    <span class="text-[10px] text-slate-400 font-mono block">{{ (person.amountCents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div>
+                    <span v-if="person.status === 'paid'" class="text-emerald-600 text-xs font-black flex items-center gap-1">
+                      <i class="pi pi-check-circle"></i>
+                      <span>PAGADO</span>
+                    </span>
+                    <div v-else class="flex items-center gap-2">
+                      <button
+                        v-if="processingPersonId !== person.id"
+                        @click="startPayPerson(person)"
+                        class="px-3 py-1 bg-[#9235DF] hover:bg-[#9235DF]/90 text-white text-xs font-bold rounded-lg transition-all cursor-pointer active:scale-95"
+                      >
+                        Cobrar
+                      </button>
+                      <span v-else class="text-[#9235DF] text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                        <i class="pi pi-spin pi-spinner text-xs"></i>
+                        <span>Procesando...</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payment Method confirmation for product split -->
+              <div v-if="activePersonToPay" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-black text-slate-700">Cobrar {{ activePersonToPay.label }} ({{ (activePersonToPay.amountCents / 100).toFixed(2) }} €)</span>
+                  <button @click="activePersonToPay = null" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <button
+                    @click="confirmPayPerson('card')"
+                    :disabled="processingPersonId !== null"
+                    class="flex justify-center items-center gap-1.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 cursor-pointer disabled:opacity-50"
+                  >
+                    <i class="pi pi-credit-card"></i>
+                    <span>Tarjeta</span>
+                  </button>
+                  <button
+                    @click="confirmPayPerson('cash')"
+                    :disabled="processingPersonId !== null"
+                    class="flex justify-center items-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 cursor-pointer disabled:opacity-50"
+                  >
+                    <i class="pi pi-wallet"></i>
+                    <span>Efectivo</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Cancellation Option -->
+              <div class="pt-4 border-t border-slate-100 flex justify-between items-center gap-2">
+                <button
+                  type="button"
+                  @click="handleCancelSplit"
+                  :disabled="selectedTable.splitPayment.people.some(p => p.status === 'paid')"
+                  class="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 disabled:text-slate-400 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  Cancelar división
+                </button>
+                <p v-if="selectedTable.splitPayment.people.some(p => p.status === 'paid')" class="text-[10px] text-slate-400 font-semibold italic text-right leading-tight flex-1">
+                  No se puede cancelar la división porque ya existen pagos registrados.
+                </p>
+              </div>
+            </div>
           </div>
           <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block text-center mt-2">{{ paymentAmountInputError }}</span>
         </div>
@@ -1336,7 +1552,28 @@
               No se puede dividir la cuenta porque ya tiene pagos registrados.
             </div>
             <div v-else class="space-y-4">
-              <p class="text-[11px] text-slate-400 text-center">Seleccione el número de personas para dividir la cuenta a partes iguales.</p>
+              <!-- Split Mode Switcher -->
+              <div class="flex bg-slate-100 p-1 rounded-xl mb-2">
+                <button
+                  type="button"
+                  @click="splitModeInput = 'equal'; paymentAmountInputError = ''"
+                  :class="['flex-1 py-1 text-center text-[10px] font-bold rounded-lg transition-all', splitModeInput === 'equal' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+                >
+                  A partes iguales
+                </button>
+                <button
+                  type="button"
+                  @click="splitModeInput = 'products'; paymentAmountInputError = ''"
+                  :class="['flex-1 py-1 text-center text-[10px] font-bold rounded-lg transition-all', splitModeInput === 'products' ? 'bg-white text-[#9235DF] shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+                >
+                  Por productos
+                </button>
+              </div>
+
+              <p class="text-[11px] text-slate-400 text-center">
+                {{ splitModeInput === 'equal' ? 'Seleccione el número de personas para dividir la cuenta a partes iguales.' : 'Seleccione el número de personas para distribuir los productos.' }}
+              </p>
+
               <div class="flex items-center justify-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl">
                 <button
                   type="button"
@@ -1356,6 +1593,7 @@
                   <i class="pi pi-plus text-xs"></i>
                 </button>
               </div>
+
               <button
                 type="button"
                 @click="handleCreateSplit"
@@ -1507,9 +1745,13 @@ const hasActiveSplit = computed(() => {
 })
 
 const checkoutTab = ref<'complete' | 'partial' | 'split'>('complete')
+const splitModeInput = ref<'equal' | 'products'>('equal')
 const splitPeopleInput = ref(2)
 const processingShareId = ref<string | null>(null)
 const activeShareToPay = ref<any | null>(null)
+
+const processingPersonId = ref<string | null>(null)
+const activePersonToPay = ref<any | null>(null)
 
 const decrementPeopleCount = () => {
   if (splitPeopleInput.value > 2) {
@@ -1526,6 +1768,11 @@ const incrementPeopleCount = () => {
 const handleCreateSplit = () => {
   if (!selectedTable.value) return
   paymentAmountInputError.value = ''
+
+  if (splitModeInput.value === 'products') {
+    handleCreateProductSplit()
+    return
+  }
 
   const res = mesasStore.createEqualSplit(selectedTable.value.id, splitPeopleInput.value)
   if (res.success) {
@@ -1544,6 +1791,120 @@ const handleCreateSplit = () => {
       paymentAmountInputError.value = `Error al crear la división: ${res.reason}`
     }
   }
+}
+
+const handleCreateProductSplit = () => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+
+  const res = mesasStore.createProductSplit(selectedTable.value.id, splitPeopleInput.value)
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) {
+      selectedTable.value = updated
+    }
+  } else {
+    paymentAmountInputError.value = `Error al crear la división: ${res.reason}`
+  }
+}
+
+const handleAssignProduct = (personId: string, orderItemId: string, qty: number) => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+  const res = mesasStore.assignProductQuantity({
+    tableId: selectedTable.value.id,
+    personId,
+    orderItemId,
+    quantity: qty
+  })
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) selectedTable.value = updated
+  } else {
+    paymentAmountInputError.value = `Error al asignar: ${res.reason}`
+  }
+}
+
+const handleUnassignProduct = (personId: string, orderItemId: string, qty: number) => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+  const res = mesasStore.unassignProductQuantity({
+    tableId: selectedTable.value.id,
+    personId,
+    orderItemId,
+    quantity: qty
+  })
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) selectedTable.value = updated
+  } else {
+    paymentAmountInputError.value = `Error al desasignar: ${res.reason}`
+  }
+}
+
+const handleConfirmProductSplit = () => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+  const res = mesasStore.confirmProductSplit(selectedTable.value.id)
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) selectedTable.value = updated
+  } else {
+    if (res.reason === 'unassigned_products') {
+      paymentAmountInputError.value = 'Quedan productos pendientes de asignar.'
+    } else if (res.reason === 'person_has_no_allocations') {
+      paymentAmountInputError.value = 'Todas las personas deben tener al menos un producto asignado.'
+    } else {
+      paymentAmountInputError.value = `Error al confirmar: ${res.reason}`
+    }
+  }
+}
+
+const handleCancelProductSplit = () => {
+  if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+  const res = mesasStore.cancelProductSplit(selectedTable.value.id)
+  if (res.success) {
+    const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+    if (updated) selectedTable.value = updated
+  } else {
+    paymentAmountInputError.value = `Error al cancelar: ${res.reason}`
+  }
+}
+
+const startPayPerson = (person: any) => {
+  activePersonToPay.value = person
+}
+
+const confirmPayPerson = (method: 'card' | 'cash') => {
+  if (!selectedTable.value || !activePersonToPay.value) return
+  const personId = activePersonToPay.value.id
+  processingPersonId.value = personId
+
+  const res = mesasStore.payProductSplitPerson({
+    tableId: selectedTable.value.id,
+    personId,
+    method
+  })
+
+  setTimeout(() => {
+    processingPersonId.value = null
+    activePersonToPay.value = null
+
+    if (res.success) {
+      if (res.isFullyPaid) {
+        showCheckoutDialog.value = false
+        selectedTable.value = null
+      } else {
+        const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
+        if (updated) {
+          selectedTable.value = updated
+        }
+      }
+    } else {
+      paymentAmountInputError.value = `Error en el pago: ${res.reason}`
+    }
+  }, 200)
 }
 
 const startPayShare = (share: any) => {
@@ -1584,6 +1945,11 @@ const confirmPayShare = (method: 'card' | 'cash') => {
 const handleCancelSplit = () => {
   if (!selectedTable.value) return
   paymentAmountInputError.value = ''
+
+  if (selectedTable.value.splitPayment?.mode === 'products') {
+    handleCancelProductSplit()
+    return
+  }
 
   const res = mesasStore.cancelEqualSplit(selectedTable.value.id)
   if (res.success) {
