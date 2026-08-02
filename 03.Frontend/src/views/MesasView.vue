@@ -1244,7 +1244,7 @@
               </div>
 
               <!-- Main Method selection -->
-              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'share')" class="grid grid-cols-3 gap-2">
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'share') && !(cashVerificationActive && cashVerificationType === 'share')" class="grid grid-cols-3 gap-2">
                 <button
                   @click="confirmPayShare('card')"
                   :disabled="processingShareId !== null"
@@ -1254,7 +1254,7 @@
                   <span>Tarjeta</span>
                 </button>
                 <button
-                  @click="confirmPayShare('cash')"
+                  @click="cashVerificationType = 'share'; cashVerificationActive = true"
                   :disabled="processingShareId !== null"
                   class="flex justify-center items-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 cursor-pointer disabled:opacity-50"
                 >
@@ -1268,6 +1268,77 @@
                 >
                   <i class="pi pi-mobile"></i>
                   <span>Bizum</span>
+                </button>
+              </div>
+
+              <!-- Cash Manual Verification sub-card for equal split share -->
+              <div v-else-if="cashVerificationActive && cashVerificationType === 'share'" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+                <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                  <span class="text-xs font-bold text-slate-700">Detalle de Cobro en Efectivo</span>
+                  <button @click="resetCash" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+                </div>
+
+                <div class="space-y-1.5 p-3 bg-white rounded-xl border border-slate-100 text-[10px] text-slate-500 font-mono">
+                  <div class="flex justify-between">
+                    <span>Importe cuota:</span>
+                    <span>{{ (activeShareToPay.amountCents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Propina:</span>
+                    <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between font-bold text-slate-800 border-t border-slate-100 pt-1.5 mt-1.5">
+                    <span>Total a cobrar:</span>
+                    <span>{{ (activeTotalToCobrarCents / 100).toFixed(2) }} €</span>
+                  </div>
+                </div>
+
+                <!-- Input for cash received -->
+                <div class="space-y-1.5">
+                  <label class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Efectivo Entregado (€)</label>
+                  <input
+                    type="text"
+                    v-model="cashReceivedInput"
+                    placeholder="Ej: 50.00 (vacío para exacto)"
+                    class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 text-[#08071A]"
+                  />
+                  <span v-if="cashReceivedInputError" class="text-[10px] text-red-500 font-bold block">{{ cashReceivedInputError }}</span>
+                </div>
+
+                <!-- Quick cash buttons -->
+                <div class="flex flex-wrap gap-1.5 pt-0.5">
+                  <button
+                    type="button"
+                    @click="cashReceivedInput = (activeTotalToCobrarCents / 100).toFixed(2)"
+                    class="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                  >
+                    Justo
+                  </button>
+                  <button
+                    v-for="val in [10, 20, 50, 100]"
+                    :key="val"
+                    type="button"
+                    :disabled="val * 100 < activeTotalToCobrarCents"
+                    @click="cashReceivedInput = val.toFixed(2)"
+                    class="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer disabled:opacity-30 disabled:hover:bg-white"
+                  >
+                    {{ val }} €
+                  </button>
+                </div>
+
+                <!-- Change display -->
+                <div class="flex justify-between items-center p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-bold text-emerald-800">
+                  <span>Cambio a devolver:</span>
+                  <span class="text-sm font-black">{{ (computedChangeCents / 100).toFixed(2) }} €</span>
+                </div>
+
+                <!-- Confirm payment button -->
+                <button
+                  @click="confirmPayShare('cash')"
+                  :disabled="processingShareId !== null"
+                  class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer transition-colors"
+                >
+                  Confirmar y entregar cambio
                 </button>
               </div>
 
@@ -1519,7 +1590,7 @@
                 </div>
 
                 <!-- Main Method selection -->
-                <div v-if="!(bizumVerificationActive && bizumVerificationType === 'person')" class="grid grid-cols-3 gap-2">
+                <div v-if="!(bizumVerificationActive && bizumVerificationType === 'person') && !(cashVerificationActive && cashVerificationType === 'person')" class="grid grid-cols-3 gap-2">
                   <button
                     @click="confirmPayPerson('card')"
                     :disabled="processingPersonId !== null"
@@ -1529,7 +1600,7 @@
                     <span>Tarjeta</span>
                   </button>
                   <button
-                    @click="confirmPayPerson('cash')"
+                    @click="cashVerificationType = 'person'; cashVerificationActive = true"
                     :disabled="processingPersonId !== null"
                     class="flex justify-center items-center gap-1.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 cursor-pointer disabled:opacity-50"
                   >
@@ -1543,6 +1614,77 @@
                   >
                     <i class="pi pi-mobile"></i>
                     <span>Bizum</span>
+                  </button>
+                </div>
+
+                <!-- Cash Manual Verification sub-card for product split person -->
+                <div v-else-if="cashVerificationActive && cashVerificationType === 'person'" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+                  <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                    <span class="text-xs font-bold text-slate-700">Detalle de Cobro en Efectivo</span>
+                    <button @click="resetCash" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+                  </div>
+
+                  <div class="space-y-1.5 p-3 bg-white rounded-xl border border-slate-100 text-[10px] text-slate-500 font-mono">
+                    <div class="flex justify-between">
+                      <span>Importe cuenta:</span>
+                      <span>{{ (activePersonToPay.amountCents / 100).toFixed(2) }} €</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Propina:</span>
+                      <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-slate-800 border-t border-slate-100 pt-1.5 mt-1.5">
+                      <span>Total a cobrar:</span>
+                      <span>{{ (activeTotalToCobrarCents / 100).toFixed(2) }} €</span>
+                    </div>
+                  </div>
+
+                  <!-- Input for cash received -->
+                  <div class="space-y-1.5">
+                    <label class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Efectivo Entregado (€)</label>
+                    <input
+                      type="text"
+                      v-model="cashReceivedInput"
+                      placeholder="Ej: 50.00 (vacío para exacto)"
+                      class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 text-[#08071A]"
+                    />
+                    <span v-if="cashReceivedInputError" class="text-[10px] text-red-500 font-bold block">{{ cashReceivedInputError }}</span>
+                  </div>
+
+                  <!-- Quick cash buttons -->
+                  <div class="flex flex-wrap gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      @click="cashReceivedInput = (activeTotalToCobrarCents / 100).toFixed(2)"
+                      class="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                    >
+                      Justo
+                    </button>
+                    <button
+                      v-for="val in [10, 20, 50, 100]"
+                      :key="val"
+                      type="button"
+                      :disabled="val * 100 < activeTotalToCobrarCents"
+                      @click="cashReceivedInput = val.toFixed(2)"
+                      class="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer disabled:opacity-30 disabled:hover:bg-white"
+                    >
+                      {{ val }} €
+                    </button>
+                  </div>
+
+                  <!-- Change display -->
+                  <div class="flex justify-between items-center p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-bold text-emerald-800">
+                    <span>Cambio a devolver:</span>
+                    <span class="text-sm font-black">{{ (computedChangeCents / 100).toFixed(2) }} €</span>
+                  </div>
+
+                  <!-- Confirm payment button -->
+                  <button
+                    @click="confirmPayPerson('cash')"
+                    :disabled="processingPersonId !== null"
+                    class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer transition-colors"
+                  >
+                    Confirmar y entregar cambio
                   </button>
                 </div>
 
@@ -1926,7 +2068,7 @@
                 <span v-if="tipInputError" class="text-[10px] text-red-500 font-bold block">{{ tipInputError }}</span>
               </div>
 
-              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'partial')" class="grid grid-cols-3 gap-3">
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'partial') && !(cashVerificationActive && cashVerificationType === 'partial')" class="grid grid-cols-3 gap-3">
                 <button
                   @click="handleCustomPayment('card')"
                   class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
@@ -1937,7 +2079,7 @@
                   <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Tarjeta</span>
                 </button>
                 <button
-                  @click="handleCustomPayment('cash')"
+                  @click="cashVerificationType = 'partial'; cashVerificationActive = true"
                   class="flex flex-col items-center gap-3 p-3 bg-slate-50 hover:bg-[#9235DF]/5 border border-slate-100 hover:border-[#9235DF]/20 rounded-2xl cursor-pointer transition-all active:scale-95 group"
                 >
                   <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
@@ -1953,6 +2095,76 @@
                     <i class="pi pi-mobile"></i>
                   </div>
                   <span class="text-[10px] font-bold text-slate-600 group-hover:text-[#9235DF]">Bizum</span>
+                </button>
+              </div>
+
+              <!-- Cash Manual Verification sub-card for partial payment -->
+              <div v-else-if="cashVerificationActive && cashVerificationType === 'partial'" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+                <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                  <span class="text-xs font-bold text-slate-700">Detalle de Cobro en Efectivo</span>
+                  <button @click="resetCash" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
+                </div>
+
+                <div class="space-y-1.5 p-3 bg-white rounded-xl border border-slate-100 text-[10px] text-slate-500 font-mono">
+                  <div class="flex justify-between">
+                    <span>Importe cuenta:</span>
+                    <span>{{ (parseFloat(paymentAmountInput) || 0).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Propina:</span>
+                    <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between font-bold text-slate-800 border-t border-slate-100 pt-1.5 mt-1.5">
+                    <span>Total a cobrar:</span>
+                    <span>{{ (activeTotalToCobrarCents / 100).toFixed(2) }} €</span>
+                  </div>
+                </div>
+
+                <!-- Input for cash received -->
+                <div class="space-y-1.5">
+                  <label class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Efectivo Entregado (€)</label>
+                  <input
+                    type="text"
+                    v-model="cashReceivedInput"
+                    placeholder="Ej: 50.00 (vacío para exacto)"
+                    class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 text-[#08071A]"
+                  />
+                  <span v-if="cashReceivedInputError" class="text-[10px] text-red-500 font-bold block">{{ cashReceivedInputError }}</span>
+                </div>
+
+                <!-- Quick cash buttons -->
+                <div class="flex flex-wrap gap-1.5 pt-0.5">
+                  <button
+                    type="button"
+                    @click="cashReceivedInput = (activeTotalToCobrarCents / 100).toFixed(2)"
+                    class="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                  >
+                    Justo
+                  </button>
+                  <button
+                    v-for="val in [10, 20, 50, 100]"
+                    :key="val"
+                    type="button"
+                    :disabled="val * 100 < activeTotalToCobrarCents"
+                    @click="cashReceivedInput = val.toFixed(2)"
+                    class="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer disabled:opacity-30 disabled:hover:bg-white"
+                  >
+                    {{ val }} €
+                  </button>
+                </div>
+
+                <!-- Change display -->
+                <div class="flex justify-between items-center p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-bold text-emerald-800">
+                  <span>Cambio a devolver:</span>
+                  <span class="text-sm font-black">{{ (computedChangeCents / 100).toFixed(2) }} €</span>
+                </div>
+
+                <!-- Confirm payment button -->
+                <button
+                  @click="handleCustomPayment('cash')"
+                  class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer transition-colors"
+                >
+                  Confirmar y entregar cambio
                 </button>
               </div>
 
@@ -2212,6 +2424,11 @@ const bizumVerificationType = ref<'complete' | 'partial' | 'share' | 'person' | 
 const tipInput = ref('')
 const tipInputError = ref('')
 
+const cashVerificationActive = ref(false)
+const cashVerificationType = ref<'complete' | 'partial' | 'share' | 'person' | null>(null)
+const cashReceivedInput = ref('')
+const cashReceivedInputError = ref('')
+
 const resetTip = () => {
   tipInput.value = ''
   tipInputError.value = ''
@@ -2222,6 +2439,76 @@ const resetBizum = () => {
   bizumVerificationType.value = null
   resetTip()
 }
+
+const resetCashReceived = () => {
+  cashReceivedInput.value = ''
+  cashReceivedInputError.value = ''
+}
+
+const resetCash = () => {
+  cashVerificationActive.value = false
+  cashVerificationType.value = null
+  resetCashReceived()
+}
+
+const parseCashReceivedInput = (input: string): { cents: number; error?: string } => {
+  const trimmed = input.trim()
+  if (!trimmed) {
+    return { cents: -1 }
+  }
+
+  const regex = /^(\d+)(?:[.,](\d{1,2}))?$/
+  const match = trimmed.match(regex)
+  if (!match) {
+    return { cents: 0, error: 'El formato del importe es incorrecto (máx. 2 decimales y sin símbolos).' }
+  }
+
+  const eurosStr = match[1]
+  const centsStr = match[2] || '0'
+  const euros = parseInt(eurosStr, 10)
+  const paddedCentsStr = centsStr.padEnd(2, '0')
+  const cents = parseInt(paddedCentsStr, 10)
+
+  const totalCents = (euros * 100) + cents
+  return { cents: totalCents }
+}
+
+const getActiveAmountCents = () => {
+  if (!selectedTable.value) return 0
+  if (checkoutTab.value === 'complete') {
+    return mesasStore.getTableRemainingCents(selectedTable.value.id)
+  }
+  if (checkoutTab.value === 'partial') {
+    const parsed = parseAmountInput(paymentAmountInput.value)
+    return parsed.error ? 0 : parsed.cents
+  }
+  if (checkoutTab.value === 'split') {
+    if (activeShareToPay.value) {
+      return activeShareToPay.value.amountCents
+    }
+    if (activePersonToPay.value) {
+      return activePersonToPay.value.amountCents
+    }
+  }
+  return 0
+}
+
+const activeTotalToCobrarCents = computed(() => {
+  const amount = getActiveAmountCents()
+  const tipRes = parseTipInput(tipInput.value)
+  const tip = tipRes.error ? 0 : tipRes.cents
+  return amount + tip
+})
+
+const computedChangeCents = computed(() => {
+  const totalToCobrar = activeTotalToCobrarCents.value
+  const cashRes = parseCashReceivedInput(cashReceivedInput.value)
+  if (cashRes.error || cashRes.cents < 0) {
+    return 0
+  }
+  const diff = cashRes.cents - totalToCobrar
+  return diff >= 0 ? diff : 0
+})
 
 const parseTipInput = (input: string): { cents: number; error?: string } => {
   const trimmed = input.trim()
@@ -2502,7 +2789,9 @@ const handleCancelProductSplit = () => {
   const res = mesasStore.cancelProductSplit(selectedTable.value.id)
   if (res.success) {
     const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
-    if (updated) selectedTable.value = updated
+    if (updated) {
+      selectedTable.value = updated
+    }
   } else {
     paymentAmountInputError.value = `Error al cancelar: ${res.reason}`
   }
@@ -2515,6 +2804,29 @@ const startPayPerson = (person: any) => {
 
 const confirmPayPerson = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value || !activePersonToPay.value) return
+  paymentAmountInputError.value = ''
+  tipInputError.value = ''
+  cashReceivedInputError.value = ''
+
+  const tipRes = parseTipInput(tipInput.value)
+  if (tipRes.error) {
+    tipInputError.value = tipRes.error
+    return
+  }
+  const tipCents = tipRes.cents
+
+  let cashReceivedCents: number | undefined = undefined
+  if (method === 'cash') {
+    const cashRes = parseCashReceivedInput(cashReceivedInput.value)
+    if (cashRes.error) {
+      cashReceivedInputError.value = cashRes.error
+      return
+    }
+    if (cashRes.cents >= 0) {
+      cashReceivedCents = cashRes.cents
+    }
+  }
+
   const personId = activePersonToPay.value.id
   processingPersonId.value = personId
 
@@ -2522,12 +2834,16 @@ const confirmPayPerson = (method: PaymentMethod, verifiedManually?: boolean) => 
     tableId: selectedTable.value.id,
     personId,
     method,
-    verifiedManually
+    verifiedManually,
+    tipCents,
+    cashReceivedCents
   })
 
   setTimeout(() => {
     processingPersonId.value = null
     activePersonToPay.value = null
+    resetTip()
+    resetCash()
 
     if (res.success) {
       if (res.isFullyPaid) {
@@ -2552,6 +2868,29 @@ const startPayShare = (share: any) => {
 
 const confirmPayShare = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value || !activeShareToPay.value) return
+  paymentAmountInputError.value = ''
+  tipInputError.value = ''
+  cashReceivedInputError.value = ''
+
+  const tipRes = parseTipInput(tipInput.value)
+  if (tipRes.error) {
+    tipInputError.value = tipRes.error
+    return
+  }
+  const tipCents = tipRes.cents
+
+  let cashReceivedCents: number | undefined = undefined
+  if (method === 'cash') {
+    const cashRes = parseCashReceivedInput(cashReceivedInput.value)
+    if (cashRes.error) {
+      cashReceivedInputError.value = cashRes.error
+      return
+    }
+    if (cashRes.cents >= 0) {
+      cashReceivedCents = cashRes.cents
+    }
+  }
+
   const shareId = activeShareToPay.value.id
   processingShareId.value = shareId
 
@@ -2559,12 +2898,16 @@ const confirmPayShare = (method: PaymentMethod, verifiedManually?: boolean) => {
     tableId: selectedTable.value.id,
     shareId,
     method,
-    verifiedManually
+    verifiedManually,
+    tipCents,
+    cashReceivedCents
   })
 
   setTimeout(() => {
     processingShareId.value = null
     activeShareToPay.value = null
+    resetTip()
+    resetCash()
 
     if (res.success) {
       if (res.isFullyPaid) {
@@ -2620,6 +2963,7 @@ watch(selectedTable, () => {
   paymentAmountInputError.value = ''
   resetBizum()
   resetTip()
+  resetCash()
 
   showDiscountForm.value = false
   discountFormValue.value = ''
@@ -2632,6 +2976,15 @@ watch(selectedTable, () => {
 watch(checkoutTab, () => {
   resetBizum()
   resetTip()
+  resetCash()
+})
+
+watch(showCheckoutDialog, (newVal) => {
+  if (!newVal) {
+    resetBizum()
+    resetTip()
+    resetCash()
+  }
 })
 
 // Interactive Ficha Modal states
@@ -3381,10 +3734,35 @@ const parseAmountInput = (val: string): { cents: number; error?: string } => {
 
 const handleDirectPayment = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value) return
+  paymentAmountInputError.value = ''
+  tipInputError.value = ''
+  cashReceivedInputError.value = ''
+
+  const tipRes = parseTipInput(tipInput.value)
+  if (tipRes.error) {
+    tipInputError.value = tipRes.error
+    return
+  }
+  const tipCents = tipRes.cents
+
+  let cashReceivedCents: number | undefined = undefined
+  if (method === 'cash') {
+    const cashRes = parseCashReceivedInput(cashReceivedInput.value)
+    if (cashRes.error) {
+      cashReceivedInputError.value = cashRes.error
+      return
+    }
+    if (cashRes.cents >= 0) {
+      cashReceivedCents = cashRes.cents
+    }
+  }
+
   const remainingCents = mesasStore.getTableRemainingCents(selectedTable.value.id)
   const res = mesasStore.registerTablePayment({
     tableId: selectedTable.value.id,
     amountCents: remainingCents,
+    tipCents,
+    cashReceivedCents,
     method,
     verifiedManually
   })
@@ -3394,6 +3772,8 @@ const handleDirectPayment = (method: PaymentMethod, verifiedManually?: boolean) 
     isPartialMode.value = false
     paymentAmountInput.value = ''
     paymentAmountInputError.value = ''
+    resetTip()
+    resetCash()
     selectedTable.value = null
     showReleaseWarning.value = false
   } else {
@@ -3407,17 +3787,40 @@ const handleDirectPayment = (method: PaymentMethod, verifiedManually?: boolean) 
 const handleCustomPayment = (method: PaymentMethod, verifiedManually?: boolean) => {
   if (!selectedTable.value) return
   paymentAmountInputError.value = ''
+  tipInputError.value = ''
+  cashReceivedInputError.value = ''
 
   const parseRes = parseAmountInput(paymentAmountInput.value)
   if (parseRes.error) {
     paymentAmountInputError.value = parseRes.error
     return
   }
-
   const amountCents = parseRes.cents
+
+  const tipRes = parseTipInput(tipInput.value)
+  if (tipRes.error) {
+    tipInputError.value = tipRes.error
+    return
+  }
+  const tipCents = tipRes.cents
+
+  let cashReceivedCents: number | undefined = undefined
+  if (method === 'cash') {
+    const cashRes = parseCashReceivedInput(cashReceivedInput.value)
+    if (cashRes.error) {
+      cashReceivedInputError.value = cashRes.error
+      return
+    }
+    if (cashRes.cents >= 0) {
+      cashReceivedCents = cashRes.cents
+    }
+  }
+
   const res = mesasStore.registerTablePayment({
     tableId: selectedTable.value.id,
     amountCents,
+    tipCents,
+    cashReceivedCents,
     method,
     verifiedManually
   })
@@ -3428,11 +3831,15 @@ const handleCustomPayment = (method: PaymentMethod, verifiedManually?: boolean) 
       isPartialMode.value = false
       paymentAmountInput.value = ''
       paymentAmountInputError.value = ''
+      resetTip()
+      resetCash()
       selectedTable.value = null
       showReleaseWarning.value = false
     } else {
       paymentAmountInput.value = ''
       paymentAmountInputError.value = ''
+      resetTip()
+      resetCash()
       const updated = mesasStore.tables.find(t => t.id === selectedTable.value?.id)
       if (updated) {
         selectedTable.value = updated
