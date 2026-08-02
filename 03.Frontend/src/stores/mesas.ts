@@ -192,6 +192,15 @@ export interface CompletedOrderDiscount {
   reasonDetails?: string
 }
 
+export interface CompletedOrderItem {
+  orderItemId?: string
+  productId?: string
+  productName: string
+  quantity: number
+  unitPriceCents: number
+  totalCents: number
+}
+
 export interface CompletedOrder {
   id: string
   tableNumber: number
@@ -232,6 +241,7 @@ export interface CompletedOrder {
   discount?: CompletedOrderDiscount
   settlementType?: 'payment' | 'complimentary'
   tipCents?: number
+  ordersSnapshot?: CompletedOrderItem[]
 }
 
 export interface CheckoutPaymentResult {
@@ -828,6 +838,15 @@ export const useMesasStore = defineStore('mesas', () => {
       }
     }
 
+    const ordersSnapshot: CompletedOrderItem[] = table.orders.map(item => ({
+      orderItemId: item.id,
+      productId: item.menuItemId,
+      productName: item.name,
+      quantity: item.quantity,
+      unitPriceCents: Math.round(item.price * 100),
+      totalCents: Math.round(item.price * 100 * item.quantity)
+    }))
+
     const grossTotalCents = table.orders.reduce((sum, item) => sum + Math.round(item.price * 100 * item.quantity), 0)
     const orderDiscount: CompletedOrderDiscount | undefined = table.discount ? {
       type: table.discount.type,
@@ -857,7 +876,8 @@ export const useMesasStore = defineStore('mesas', () => {
       grossTotalCents,
       discount: orderDiscount,
       settlementType,
-      tipCents: totalTipCents > 0 ? totalTipCents : undefined
+      tipCents: totalTipCents > 0 ? totalTipCents : undefined,
+      ordersSnapshot
     })
     saveCompletedOrders()
 

@@ -703,10 +703,13 @@
               <div
                 v-for="order in mesasStore.completedOrders.slice().reverse().slice(0, 4)"
                 :key="order.id"
-                class="pt-4 first:pt-0 flex items-center justify-between text-xs"
+                @click="selectedTicket = order; showTicketDetailModal = true"
+                class="pt-4 first:pt-0 flex items-center justify-between text-xs hover:bg-slate-50/50 p-2 -mx-2 rounded-2xl transition-all cursor-pointer group"
+                tabindex="0"
+                @keydown.enter="selectedTicket = order; showTicketDetailModal = true"
               >
                 <div class="space-y-1">
-                  <p class="font-bold text-[#08071A]">Mesa {{ order.tableNumber }}</p>
+                  <p class="font-bold text-[#08071A] group-hover:text-[#9235DF]">Mesa {{ order.tableNumber }}</p>
                   <p class="text-[10px] text-slate-400 font-mono">#{{ order.id }} • {{ order.timestamp }}</p>
                 </div>
                 <div class="text-right space-y-1">
@@ -820,6 +823,271 @@
           </div>
         </div>
       </div>
+
+      <!-- HISTORICAL TICKET DETAIL MODAL -->
+      <div
+        v-if="showTicketDetailModal && selectedTicket"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md px-4 print:p-0 print:static print:bg-white print:backdrop-blur-none"
+        @click.self="showTicketDetailModal = false"
+      >
+        <div class="bg-white max-w-sm w-full p-6 rounded-3xl border border-slate-200 space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col print:max-h-full print:border-none print:shadow-none print:p-0 print:m-0 print:w-full print:max-w-full print:static">
+          <!-- Close button -->
+          <button
+            @click="showTicketDetailModal = false"
+            class="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors print:hidden"
+          >
+            <i class="pi pi-times"></i>
+          </button>
+
+          <h3 class="text-sm font-black text-[#08071A] font-outfit border-b border-slate-100 pb-3 flex items-center gap-2 print:hidden">
+            <i class="pi pi-receipt text-[#9235DF]"></i>
+            <span>Detalle de Ticket Histórico</span>
+          </h3>
+
+          <div class="flex-1 overflow-y-auto p-4 bg-slate-50/50 rounded-2xl border border-slate-100 font-mono text-[10px] text-slate-800 space-y-4 print:p-0 print:border-none print:bg-white print:text-black print:overflow-visible">
+
+            <!-- Invoice Header -->
+            <div class="text-center space-y-1">
+              <h4 class="font-black text-sm tracking-tight text-[#08071A] print:text-black">AVENIQ SYSTEM</h4>
+              <p>AVENIQ RESTAURANTES S.L.</p>
+              <p>C.I.F. B-884728192</p>
+              <p>Calle Alcalá 44, Madrid</p>
+              <p>Tlf: +34 912 345 678</p>
+            </div>
+
+            <!-- Meta info -->
+            <div class="border-t border-dashed border-slate-300 pt-3 space-y-1 print:border-black">
+              <p>TICKET ID: #{{ selectedTicket.id }}</p>
+              <p>FECHA: {{ selectedTicket.timestamp ? 'Hoy' : 'Fecha no registrada' }}  HORA: {{ selectedTicket.timestamp || '--:--' }}</p>
+              <p>MESA: M-{{ selectedTicket.tableNumber }}</p>
+              <p>CAMARERO: Sofía</p>
+              <p class="uppercase">LIQUIDACIÓN: {{ selectedTicket.settlementType === 'complimentary' ? 'Cortesía' : 'Pago' }}</p>
+            </div>
+
+            <!-- Products List -->
+            <div class="border-t border-dashed border-slate-300 pt-3 space-y-2 print:border-black">
+              <div class="flex justify-between font-bold">
+                <span>DESCRIPCIÓN</span>
+                <span>TOTAL</span>
+              </div>
+
+              <!-- Fallback if ordersSnapshot is not present -->
+              <div v-if="!selectedTicket.ordersSnapshot" class="text-slate-400 py-1 text-[9px] italic">
+                Información de productos no disponible para este ticket histórico
+              </div>
+              <div v-else class="space-y-1.5">
+                <div
+                  v-for="item in selectedTicket.ordersSnapshot"
+                  :key="item.orderItemId"
+                  class="space-y-0.5"
+                >
+                  <div class="flex justify-between">
+                    <span>{{ item.quantity }}x {{ item.productName }}</span>
+                    <span>{{ (item.totalCents / 100).toFixed(2) }}€</span>
+                  </div>
+                  <div class="text-[8px] text-slate-400 pl-2">
+                    Precio unitario: {{ (item.unitPriceCents / 100).toFixed(2) }}€
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Equal Split Shares -->
+            <div v-if="selectedTicket.splitSummary" class="border-t border-dashed border-slate-300 pt-3 space-y-2 print:border-black">
+              <div class="flex justify-between font-bold text-[9px] text-slate-500 uppercase tracking-wider">
+                <span>División a Partes Iguales</span>
+                <span>{{ selectedTicket.splitSummary.peopleCount }} pers.</span>
+              </div>
+              <div class="space-y-1 pl-2">
+                <div v-for="sh in selectedTicket.splitSummary.shares" :key="sh.paymentId" class="flex justify-between text-[9px]">
+                  <span>{{ sh.label }}</span>
+                  <span class="font-bold">{{ (sh.amountCents / 100).toFixed(2) }} €</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Product Split Summary -->
+            <div v-if="selectedTicket.productSplitSummary" class="border-t border-dashed border-slate-300 pt-3 space-y-2 print:border-black">
+              <div class="flex justify-between font-bold text-[9px] text-slate-500 uppercase tracking-wider">
+                <span>División por Productos</span>
+                <span>{{ selectedTicket.productSplitSummary.peopleCount }} pers.</span>
+              </div>
+              <div class="space-y-3 pl-1">
+                <div v-for="p in selectedTicket.productSplitSummary.people" :key="p.paymentId" class="space-y-1 p-2 bg-slate-50/80 rounded-xl border border-slate-100/50 print:bg-white print:border-none print:p-0">
+                  <div class="flex justify-between font-bold text-slate-700 print:text-black">
+                    <span>{{ p.label }}</span>
+                    <span>{{ (p.amountCents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="space-y-0.5 pl-2 text-[9px] text-slate-500 print:text-black">
+                    <div v-for="a in p.allocations" :key="a.orderItemId" class="flex justify-between">
+                      <span>{{ a.quantity }}x {{ a.productName }}</span>
+                      <span>{{ (a.amountCents / 100).toFixed(2) }} €</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Financial Totals Breakdowns -->
+            <div class="border-t border-dashed border-slate-300 pt-3 space-y-1.5 text-right font-black print:border-black">
+              <div class="flex justify-between">
+                <span>TOTAL BRUTO:</span>
+                <span>{{ (getGrossTotalCents(selectedTicket) / 100).toFixed(2) }}€</span>
+              </div>
+
+              <!-- Discount -->
+              <div v-if="selectedTicket.discount" class="flex justify-between text-rose-600 font-bold print:text-black">
+                <span>DESCUENTO ({{ selectedTicket.discount.reason === 'cortesia' ? 'CORTESÍA' : 'FIDELIZACIÓN' }}):</span>
+                <span>-{{ (selectedTicket.discount.amountCents / 100).toFixed(2) }}€</span>
+              </div>
+
+              <div class="flex justify-between text-xs pt-1 border-t border-slate-200 print:border-black">
+                <span>TOTAL NETO FACTURADO:</span>
+                <span>{{ selectedTicket.total.toFixed(2) }}€</span>
+              </div>
+
+              <!-- Tip -->
+              <div v-if="selectedTicket.tipCents && selectedTicket.tipCents > 0" class="flex justify-between text-indigo-600 font-bold print:text-black">
+                <span>PROPINA RECAUDADA:</span>
+                <span>{{ (selectedTicket.tipCents / 100).toFixed(2) }}€</span>
+              </div>
+
+              <div class="flex justify-between text-xs pt-1.5 border-t border-dashed border-slate-300 text-[#9235DF] print:text-black print:border-black">
+                <span>TOTAL RECIBIDO:</span>
+                <span>{{ ((Math.round(selectedTicket.total * 100) + (selectedTicket.tipCents ?? 0)) / 100).toFixed(2) }}€</span>
+              </div>
+            </div>
+
+            <!-- Payment Breakdown Details -->
+            <div class="border-t border-dashed border-slate-300 pt-3 space-y-2 print:border-black">
+              <div class="font-bold text-[9px] text-slate-500 uppercase tracking-wider flex justify-between">
+                <span>Desglose de Pago</span>
+                <span v-if="selectedTicket.isMixedPayment" class="text-[8px] px-1.5 bg-indigo-50 border border-indigo-100 rounded text-indigo-600 font-black print:border-black">Mixto</span>
+              </div>
+
+              <div class="space-y-2">
+                <div
+                  v-for="(payment, idx) in getPaymentDetails(selectedTicket)"
+                  :key="payment.id || idx"
+                  class="p-2 bg-white rounded-xl border border-slate-100 space-y-1.5 text-[9px] print:border-none print:p-0"
+                >
+                  <div class="flex justify-between font-bold text-slate-700 print:text-black">
+                    <span>Pago #{{ Number(idx) + 1 }} - {{ formatMethodLabel(payment.method) }}</span>
+                    <span>{{ (payment.amountCents / 100).toFixed(2) }} €</span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-y-0.5 text-slate-500 pl-1 print:text-black">
+                    <span v-if="payment.tipCents">Propina:</span>
+                    <span v-if="payment.tipCents" class="text-right font-semibold">{{ (payment.tipCents / 100).toFixed(2) }} €</span>
+
+                    <!-- Cash received and Change -->
+                    <template v-if="payment.method === 'cash'">
+                      <span>Efectivo entregado:</span>
+                      <span class="text-right font-semibold">
+                        {{ payment.cashReceivedCents !== undefined ? (payment.cashReceivedCents / 100).toFixed(2) : ( (payment.amountCents + (payment.tipCents ?? 0)) / 100 ).toFixed(2) }} €
+                      </span>
+                      <span>Cambio a devolver:</span>
+                      <span class="text-right font-bold text-emerald-600 print:text-black">{{ (getChangeCents(payment) / 100).toFixed(2) }} €</span>
+                    </template>
+
+                    <!-- Bizum Manual Verification -->
+                    <template v-if="payment.method === 'bizum'">
+                      <span class="col-span-2 text-indigo-600 font-bold flex items-center gap-1 print:text-black">
+                        <i class="pi pi-check-circle text-[8px]"></i> Verificado manualmente
+                      </span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer info -->
+            <div class="text-center pt-4 border-t border-dashed border-slate-300 text-slate-400 space-y-1 print:border-black">
+              <p>*** GRACIAS POR SU VISITA ***</p>
+              <p>Software homologado Aveniq POS</p>
+            </div>
+          </div>
+
+          <!-- Dialog Print Actions -->
+          <div class="flex gap-3 print:hidden">
+            <button
+              @click="triggerPrint"
+              class="flex-1 py-3 bg-[#9235DF] hover:bg-[#7924c2] text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <i class="pi pi-print"></i>
+              <span>Imprimir / PDF</span>
+            </button>
+            <button
+              @click="showTicketDetailModal = false"
+              class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+            >
+              Cerrar Detalle
+            </button>
+          </div>
+        </div>
+      </div>
+
+<style scoped>
+@media print {
+  /* Hide all dashboard/app contents */
+  #app > *:not(.print\:static) {
+    display: none !important;
+  }
+  body > *:not(.print\:static) {
+    display: none !important;
+  }
+  /* Style print area to take full page space */
+  .print\:static {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    z-index: 99999 !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+  .print\:m-0 {
+    margin: 0 !important;
+  }
+  .print\:border-none {
+    border: none !important;
+  }
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+  .print\:max-h-full {
+    max-height: none !important;
+  }
+  .print\:w-full {
+    width: 100% !important;
+  }
+  .print\:max-w-full {
+    max-width: none !important;
+  }
+  .print\:bg-white {
+    background-color: white !important;
+    background: white !important;
+  }
+  .print\:text-black {
+    color: black !important;
+  }
+  .print\:overflow-visible {
+    overflow: visible !important;
+  }
+  .print\:border-black {
+    border-color: black !important;
+  }
+}
+</style>
 
       <!-- SUCCESS NOTIFICATION TOAST -->
       <div
@@ -1355,5 +1623,52 @@ const generateMockSale = () => {
   setTimeout(() => {
     toastMessage.value = null
   }, 3000)
+}
+
+const showTicketDetailModal = ref(false)
+const selectedTicket = ref<any>(null)
+
+const getGrossTotalCents = (ticket: any) => {
+  if (!ticket) return 0
+  if (ticket.grossTotalCents !== undefined) return ticket.grossTotalCents
+  if (ticket.ordersSnapshot) {
+    return ticket.ordersSnapshot.reduce((sum: number, item: any) => sum + item.totalCents, 0)
+  }
+  return Math.round(ticket.total * 100)
+}
+
+const getChangeCents = (payment: any) => {
+  if (!payment) return 0
+  const cash = payment.cashReceivedCents ?? (payment.amountCents + (payment.tipCents ?? 0))
+  const diff = cash - payment.amountCents - (payment.tipCents ?? 0)
+  return diff >= 0 ? diff : 0
+}
+
+const formatMethodLabel = (method: string): string => {
+  if (method === 'cash') return 'Efectivo'
+  if (method === 'card') return 'Tarjeta'
+  if (method === 'bizum') return 'Bizum'
+  if (method === 'complimentary') return 'Cortesía'
+  return method
+}
+
+const getPaymentDetails = (ticket: any) => {
+  if (!ticket) return []
+  if (ticket.payments && ticket.payments.length > 0) {
+    return ticket.payments
+  }
+  // For legacy completed orders, build a single payment matching the total
+  return [{
+    id: 'legacy-p',
+    amountCents: Math.round(ticket.total * 100),
+    tipCents: ticket.tipCents,
+    method: ticket.paymentMethod,
+    createdAt: ticket.timestamp,
+    verifiedManually: ticket.paymentMethod === 'bizum' ? true : undefined
+  }]
+}
+
+const triggerPrint = () => {
+  window.print()
 }
 </script>
