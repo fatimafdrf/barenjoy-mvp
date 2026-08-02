@@ -32,9 +32,12 @@ export interface ServiceZone {
 
 export type PaymentMethod = 'cash' | 'card' | 'bizum'
 
+export const MAX_TIP_CENTS = 100_000
+
 export interface PartialPayment {
   id: string
   amountCents: number
+  tipCents?: number
   method: PaymentMethod
   createdAt: string
   verifiedManually?: boolean
@@ -43,6 +46,7 @@ export interface PartialPayment {
 export interface CompletedPayment {
   id: string
   amountCents: number
+  tipCents?: number
   method: PaymentMethod
   createdAt: string
   verifiedManually?: boolean
@@ -224,6 +228,7 @@ export interface CompletedOrder {
   grossTotalCents?: number
   discount?: CompletedOrderDiscount
   settlementType?: 'payment' | 'complimentary'
+  tipCents?: number
 }
 
 export interface CheckoutPaymentResult {
@@ -241,6 +246,10 @@ export interface CheckoutPaymentResult {
     | 'invalid_payment_method'
     | 'already_paid'
     | 'manual_verification_required'
+    | 'invalid_tip_amount'
+    | 'tip_exceeds_limit'
+    | 'tip_not_allowed_on_partial_payment'
+    | 'complimentary_tip_not_allowed'
 }
 
 export interface CreateEqualSplitResult {
@@ -276,6 +285,10 @@ export interface PaySplitShareResult {
     | 'amount_mismatch'
     | 'invalid_split_mode'
     | 'manual_verification_required'
+    | 'invalid_tip_amount'
+    | 'tip_exceeds_limit'
+    | 'tip_not_allowed_on_partial_payment'
+    | 'complimentary_tip_not_allowed'
 }
 
 export interface CancelEqualSplitResult {
@@ -370,6 +383,10 @@ export interface PayProductSplitPersonResult {
     | 'already_paid'
     | 'manual_verification_required'
     | 'net_amount_mismatch'
+    | 'invalid_tip_amount'
+    | 'tip_exceeds_limit'
+    | 'tip_not_allowed_on_partial_payment'
+    | 'complimentary_tip_not_allowed'
 }
 
 export interface CancelProductSplitResult {
@@ -806,6 +823,11 @@ export const useMesasStore = defineStore('mesas', () => {
       reasonDetails: table.discount.reasonDetails
     } : undefined
 
+    const totalTipCents = allPayments.reduce(
+      (sum, payment) => sum + (payment.tipCents ?? 0),
+      0
+    )
+
     completedOrders.value.push({
       id: 'c-' + Math.random().toString(36).substr(2, 9),
       tableNumber: table.number,
@@ -819,7 +841,8 @@ export const useMesasStore = defineStore('mesas', () => {
       productSplitSummary,
       grossTotalCents,
       discount: orderDiscount,
-      settlementType
+      settlementType,
+      tipCents: totalTipCents > 0 ? totalTipCents : undefined
     })
     saveCompletedOrders()
 
@@ -979,11 +1002,11 @@ export const useMesasStore = defineStore('mesas', () => {
   function registerTablePayment(input: {
     tableId: string
     amountCents: number
+    tipCents?: number
     method: PaymentMethod
     verifiedManually?: boolean
   }): CheckoutPaymentResult {
-    const { tableId, amountCents, method, verifiedManually } = input
-
+    const { tableId, amountCents, tipCents, method, verifiedManually } = input
     const table = tables.value.find(t => t.id === tableId)
     if (!table) {
       return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_not_found' }
@@ -1009,9 +1032,31 @@ export const useMesasStore = defineStore('mesas', () => {
       return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_amount' }
     }
 
+    if (tipCents !== undefined) {
+      if (Number.isNaN(tipCents) || !Number.isInteger(tipCents) || tipCents < 0) {
+        return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_tip_amount' }
+      }
+      if (tipCents > MAX_TIP_CENTS) {
+        return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'tip_exceeds_limit' }
+      }
+    }
+
+    const gross = getTableGrossTotalCents(tableId)
+    const discount = getTableDiscountCents(tableId)
+    const net = getTableNetTotalCents(tableId)
+    if (net === 0 && discount === gross) {
+      if (tipCents !== undefined && tipCents > 0) {
+        return { success: false, tableId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'complimentary_tip_not_allowed' }
+      }
+    }
+
     const totalCents = getTableTotalCents(tableId)
     const paidCentsBefore = getTablePaidCents(tableId)
     const remainingCentsBefore = getTableRemainingCents(tableId)
+
+    if (amountCents < remainingCentsBefore && tipCents !== undefined && tipCents > 0) {
+      return { success: false, tableId, paidAmountCents: paidCentsBefore, remainingAmountCents: remainingCentsBefore, isFullyPaid: false, reason: 'tip_not_allowed_on_partial_payment' }
+    }
 
     if (remainingCentsBefore === 0) {
       return { success: false, tableId, paidAmountCents: paidCentsBefore, remainingAmountCents: 0, isFullyPaid: true, reason: 'already_paid' }
@@ -1030,6 +1075,7 @@ export const useMesasStore = defineStore('mesas', () => {
       const newPayment: PartialPayment = {
         id: paymentId,
         amountCents,
+        tipCents: (tipCents && tipCents > 0) ? tipCents : undefined,
         method,
         createdAt: new Date().toISOString(),
         ...(method === 'bizum' ? { verifiedManually: true } : {})
@@ -1063,6 +1109,7 @@ export const useMesasStore = defineStore('mesas', () => {
       const finalPayment: CompletedPayment = {
         id: paymentId,
         amountCents,
+        tipCents: (tipCents && tipCents > 0) ? tipCents : undefined,
         method,
         createdAt: new Date().toISOString(),
         ...(method === 'bizum' ? { verifiedManually: true } : {})
@@ -1082,7 +1129,12 @@ export const useMesasStore = defineStore('mesas', () => {
     }
   }
 
-  const checkoutTable = (id: string, paymentMethod: 'card' | 'cash' | 'bizum', verifiedManually?: boolean): boolean => {
+  const checkoutTable = (
+    id: string,
+    paymentMethod: 'card' | 'cash' | 'bizum',
+    verifiedManually?: boolean,
+    tipCents?: number
+  ): boolean => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
       const { canCheckout } = canCheckoutTable(id)
@@ -1098,6 +1150,7 @@ export const useMesasStore = defineStore('mesas', () => {
       const res = registerTablePayment({
         tableId: id,
         amountCents: getTableRemainingCents(id),
+        tipCents,
         method,
         verifiedManually
       })
@@ -1190,8 +1243,9 @@ export const useMesasStore = defineStore('mesas', () => {
     shareId: string
     method: PaymentMethod
     verifiedManually?: boolean
+    tipCents?: number
   }): PaySplitShareResult {
-    const { tableId, shareId, method, verifiedManually } = input
+    const { tableId, shareId, method, verifiedManually, tipCents } = input
 
     const table = tables.value.find(t => t.id === tableId)
     if (!table) {
@@ -1221,6 +1275,24 @@ export const useMesasStore = defineStore('mesas', () => {
 
     if (method === 'bizum' && verifiedManually !== true) {
       return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'manual_verification_required' }
+    }
+
+    if (tipCents !== undefined) {
+      if (Number.isNaN(tipCents) || !Number.isInteger(tipCents) || tipCents < 0) {
+        return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_tip_amount' }
+      }
+      if (tipCents > MAX_TIP_CENTS) {
+        return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'tip_exceeds_limit' }
+      }
+    }
+
+    const gross = getTableGrossTotalCents(tableId)
+    const discount = getTableDiscountCents(tableId)
+    const net = getTableNetTotalCents(tableId)
+    if (net === 0 && discount === gross) {
+      if (tipCents !== undefined && tipCents > 0) {
+        return { success: false, tableId, shareId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'complimentary_tip_not_allowed' }
+      }
     }
 
     const amountCents = share.amountCents
@@ -1253,6 +1325,7 @@ export const useMesasStore = defineStore('mesas', () => {
     const newPayment: PartialPayment = {
       id: paymentId,
       amountCents,
+      tipCents: (tipCents && tipCents > 0) ? tipCents : undefined,
       method,
       createdAt: new Date().toISOString(),
       ...(method === 'bizum' ? { verifiedManually: true } : {})
@@ -1775,13 +1848,32 @@ export const useMesasStore = defineStore('mesas', () => {
     personId: string
     method: PaymentMethod
     verifiedManually?: boolean
+    tipCents?: number
   }): PayProductSplitPersonResult {
-    const { tableId, personId, method, verifiedManually } = input
+    const { tableId, personId, method, verifiedManually, tipCents } = input
     const table = tables.value.find(t => t.id === tableId)
     if (!table) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'table_not_found' }
     if (!table.splitPayment) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'split_not_found' }
     if (table.splitPayment.mode !== 'products') return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_split_mode' }
     if (table.splitPayment.status !== 'confirmed') return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_split_status' }
+
+    if (tipCents !== undefined) {
+      if (Number.isNaN(tipCents) || !Number.isInteger(tipCents) || tipCents < 0) {
+        return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'invalid_tip_amount' }
+      }
+      if (tipCents > MAX_TIP_CENTS) {
+        return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'tip_exceeds_limit' }
+      }
+    }
+
+    const gross = getTableGrossTotalCents(tableId)
+    const discount = getTableDiscountCents(tableId)
+    const net = getTableNetTotalCents(tableId)
+    if (net === 0 && discount === gross) {
+      if (tipCents !== undefined && tipCents > 0) {
+        return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'complimentary_tip_not_allowed' }
+      }
+    }
 
     const person = table.splitPayment.people.find(p => p.id === personId)
     if (!person) return { success: false, tableId, personId, paidAmountCents: 0, remainingAmountCents: 0, isFullyPaid: false, reason: 'person_not_found' }
@@ -1845,6 +1937,7 @@ export const useMesasStore = defineStore('mesas', () => {
     const newPayment: PartialPayment = {
       id: paymentId,
       amountCents,
+      tipCents: (tipCents && tipCents > 0) ? tipCents : undefined,
       method,
       createdAt: new Date().toISOString(),
       ...(method === 'bizum' ? { verifiedManually: true } : {})

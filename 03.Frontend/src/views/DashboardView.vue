@@ -305,7 +305,34 @@
           <!-- 3. KPIs CON SPARKLINES -->
           <div class="space-y-4">
             <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Rendimiento Operativo</h4>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-6">
+
+              <!-- Propinas de Hoy -->
+              <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4 relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Propinas de Hoy</span>
+                  <span class="text-[10px] font-bold text-amber-600 flex items-center gap-0.5">
+                    <i class="pi pi-heart"></i> Extra
+                  </span>
+                </div>
+                <div>
+                  <h5 class="text-2xl font-black text-[#08071A]">{{ totalTips.toFixed(2) }} €</h5>
+                  <p class="text-[10px] text-slate-400 font-medium">acumulado voluntario</p>
+                </div>
+                <!-- Sparkline SVG -->
+                <div class="h-10 w-full pt-2">
+                  <svg class="w-full h-full overflow-visible" viewBox="0 0 100 20" preserveAspectRatio="none">
+                    <path d="M0,15 C20,15 40,5 60,12 C80,2 100,8 100,8" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"></path>
+                    <path d="M0,15 C20,15 40,5 60,12 C80,2 100,8 100,8 L100,20 L0,20 Z" fill="url(#sparklineGradTips)" opacity="0.06"></path>
+                    <defs>
+                      <linearGradient id="sparklineGradTips" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#f59e0b"/>
+                        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+              </div>
 
               <!-- Ventas Hoy -->
               <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4 relative overflow-hidden group hover:border-[#9235DF]/20 transition-all duration-300">
@@ -875,6 +902,10 @@ const formattedDate = computed(() => {
 
 const totalSales = computed(() => {
   return mesasStore.completedOrders.reduce((sum, o) => sum + o.total, 0)
+})
+
+const totalTips = computed(() => {
+  return mesasStore.completedOrders.reduce((sum, o) => sum + (o.tipCents ?? 0), 0) / 100
 })
 
 const cashBoxStatus = computed(() => {

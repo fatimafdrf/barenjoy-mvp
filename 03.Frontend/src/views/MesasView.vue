@@ -1226,6 +1226,23 @@
                 <button @click="activeShareToPay = null; resetBizum()" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
               </div>
 
+              <!-- Tip Input Block -->
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'share')" class="space-y-1 pt-1">
+                <div class="flex justify-between items-center">
+                  <label class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Propina voluntaria (€)</label>
+                  <span v-if="tipInput" class="text-[9px] font-bold text-[#9235DF]">
+                    Recibido: {{ ((activeShareToPay.amountCents / 100) + (parseTipInput(tipInput).cents / 100)).toFixed(2) }} €
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  v-model="tipInput"
+                  placeholder="Ej: 2.00 o vacío"
+                  class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                />
+                <span v-if="tipInputError" class="text-[9px] text-red-500 font-bold block leading-none">{{ tipInputError }}</span>
+              </div>
+
               <!-- Main Method selection -->
               <div v-if="!(bizumVerificationActive && bizumVerificationType === 'share')" class="grid grid-cols-3 gap-2">
                 <button
@@ -1259,7 +1276,21 @@
                 <p class="text-[10px] text-slate-500 font-bold text-center leading-tight">
                   Confirma que has verificado la recepción del Bizum antes de continuar.
                 </p>
-                <div class="flex gap-2">
+                <div class="space-y-1 text-[9px] text-slate-400 font-mono border-t border-slate-100 pt-2">
+                  <div class="flex justify-between">
+                    <span>Importe cuenta:</span>
+                    <span>{{ (activeShareToPay.amountCents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Propina:</span>
+                    <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between font-bold text-[#9235DF] border-t border-slate-100 pt-1 mt-1">
+                    <span>Total a verificar:</span>
+                    <span>{{ ((activeShareToPay.amountCents / 100) + (parseTipInput(tipInput).cents / 100)).toFixed(2) }} €</span>
+                  </div>
+                </div>
+                <div class="flex gap-2 pt-1">
                   <button
                     @click="confirmPayShare('bizum', true); resetBizum()"
                     :disabled="processingShareId !== null"
@@ -1470,6 +1501,23 @@
                   <button @click="activePersonToPay = null; resetBizum()" class="text-slate-400 hover:text-slate-600"><i class="pi pi-times text-xs"></i></button>
                 </div>
 
+                <!-- Tip Input Block -->
+                <div v-if="!(bizumVerificationActive && bizumVerificationType === 'person')" class="space-y-1 pt-1">
+                  <div class="flex justify-between items-center">
+                    <label class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Propina voluntaria (€)</label>
+                    <span v-if="tipInput" class="text-[9px] font-bold text-[#9235DF]">
+                      Recibido: {{ ((activePersonToPay.amountCents / 100) + (parseTipInput(tipInput).cents / 100)).toFixed(2) }} €
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    v-model="tipInput"
+                    placeholder="Ej: 2.00 o vacío"
+                    class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                  />
+                  <span v-if="tipInputError" class="text-[9px] text-red-500 font-bold block leading-none">{{ tipInputError }}</span>
+                </div>
+
                 <!-- Main Method selection -->
                 <div v-if="!(bizumVerificationActive && bizumVerificationType === 'person')" class="grid grid-cols-3 gap-2">
                   <button
@@ -1503,7 +1551,21 @@
                   <p class="text-[10px] text-slate-500 font-bold text-center leading-tight">
                     Confirma que has verificado la recepción del Bizum antes de continuar.
                   </p>
-                  <div class="flex gap-2">
+                  <div class="space-y-1 text-[9px] text-slate-400 font-mono border-t border-slate-100 pt-2">
+                    <div class="flex justify-between">
+                      <span>Importe cuenta:</span>
+                      <span>{{ (activePersonToPay.amountCents / 100).toFixed(2) }} €</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Propina:</span>
+                      <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-[#9235DF] border-t border-slate-100 pt-1 mt-1">
+                      <span>Total a verificar:</span>
+                      <span>{{ ((activePersonToPay.amountCents / 100) + (parseTipInput(tipInput).cents / 100)).toFixed(2) }} €</span>
+                    </div>
+                  </div>
+                  <div class="flex gap-2 pt-1">
                     <button
                       @click="confirmPayPerson('bizum', true); resetBizum()"
                       :disabled="processingPersonId !== null"
@@ -1750,6 +1812,24 @@
             <!-- Mode content -->
             <div v-if="checkoutTab === 'complete'" class="space-y-4">
               <p class="text-[11px] text-slate-400 text-center">Pulse el método para saldar la cuenta restante por completo.</p>
+
+              <!-- Tip Input Block for complete checkout -->
+              <div v-if="!(bizumVerificationActive && bizumVerificationType === 'complete')" class="space-y-1.5">
+                <div class="flex justify-between items-center">
+                  <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Propina voluntaria (€)</label>
+                  <span v-if="tipInput" class="text-[9px] font-bold text-[#9235DF]">
+                    Total recibido: {{ computedTotalReceived }} €
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  v-model="tipInput"
+                  placeholder="Ej: 2.00 o vacío"
+                  class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                />
+                <span v-if="tipInputError" class="text-[10px] text-red-500 font-bold block">{{ tipInputError }}</span>
+              </div>
+
               <div v-if="!(bizumVerificationActive && bizumVerificationType === 'complete')" class="grid grid-cols-3 gap-3">
                 <button
                   @click="handleDirectPayment('card')"
@@ -1785,6 +1865,20 @@
                 <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
                   Confirma que has verificado la recepción del Bizum antes de continuar.
                 </p>
+                <div class="space-y-1.5 p-3 bg-white rounded-xl border border-slate-100 text-[10px] text-slate-500 font-mono">
+                  <div class="flex justify-between">
+                    <span>Importe cuenta:</span>
+                    <span>{{ (selectedTable ? mesasStore.getTableRemainingCents(selectedTable.id)/100 : 0).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Propina:</span>
+                    <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between font-bold text-[#9235DF] border-t border-slate-100 pt-1.5 mt-1.5">
+                    <span>Total a verificar:</span>
+                    <span>{{ computedTotalReceived }} €</span>
+                  </div>
+                </div>
                 <div class="flex gap-2">
                   <button
                     @click="handleDirectPayment('bizum', true); resetBizum()"
@@ -1813,6 +1907,23 @@
                   class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A] disabled:opacity-50"
                 />
                 <span v-if="paymentAmountInputError" class="text-[10px] text-red-500 font-bold block">{{ paymentAmountInputError }}</span>
+              </div>
+
+              <!-- Tip Input Block for partial checkout (only if it clears balance) -->
+              <div v-if="isPartialClearingBalance && !(bizumVerificationActive && bizumVerificationType === 'partial')" class="space-y-1.5 pt-1">
+                <div class="flex justify-between items-center">
+                  <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Propina voluntaria (€)</label>
+                  <span v-if="tipInput" class="text-[9px] font-bold text-[#9235DF]">
+                    Total recibido: {{ computedTotalReceived }} €
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  v-model="tipInput"
+                  placeholder="Ej: 2.00 o vacío"
+                  class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#9235DF] text-[#08071A]"
+                />
+                <span v-if="tipInputError" class="text-[10px] text-red-500 font-bold block">{{ tipInputError }}</span>
               </div>
 
               <div v-if="!(bizumVerificationActive && bizumVerificationType === 'partial')" class="grid grid-cols-3 gap-3">
@@ -1850,6 +1961,20 @@
                 <p class="text-xs font-semibold text-slate-700 text-center leading-tight">
                   Confirma que has verificado la recepción del Bizum antes de continuar.
                 </p>
+                <div class="space-y-1.5 p-3 bg-white rounded-xl border border-slate-100 text-[10px] text-slate-500 font-mono">
+                  <div class="flex justify-between">
+                    <span>Importe cuenta:</span>
+                    <span>{{ (parseFloat(paymentAmountInput) || 0).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Propina:</span>
+                    <span>{{ (parseTipInput(tipInput).cents / 100).toFixed(2) }} €</span>
+                  </div>
+                  <div class="flex justify-between font-bold text-[#9235DF] border-t border-slate-100 pt-1.5 mt-1.5">
+                    <span>Total a verificar:</span>
+                    <span>{{ computedTotalReceived }} €</span>
+                  </div>
+                </div>
                 <div class="flex gap-2">
                   <button
                     @click="handleCustomPayment('bizum', true); resetBizum()"
@@ -2084,10 +2209,62 @@ const activePersonToPay = ref<any | null>(null)
 
 const bizumVerificationActive = ref(false)
 const bizumVerificationType = ref<'complete' | 'partial' | 'share' | 'person' | null>(null)
+const tipInput = ref('')
+const tipInputError = ref('')
+
+const resetTip = () => {
+  tipInput.value = ''
+  tipInputError.value = ''
+}
+
 const resetBizum = () => {
   bizumVerificationActive.value = false
   bizumVerificationType.value = null
+  resetTip()
 }
+
+const parseTipInput = (input: string): { cents: number; error?: string } => {
+  const trimmed = input.trim()
+  if (!trimmed) {
+    return { cents: 0 }
+  }
+
+  const regex = /^(\d+)(?:[.,](\d{1,2}))?$/
+  const match = trimmed.match(regex)
+  if (!match) {
+    return { cents: 0, error: 'El formato de la propina es incorrecto (máx. 2 decimales y sin símbolos).' }
+  }
+
+  const eurosStr = match[1]
+  const centsStr = match[2] || '0'
+  const euros = parseInt(eurosStr, 10)
+  const paddedCentsStr = centsStr.padEnd(2, '0')
+  const cents = parseInt(paddedCentsStr, 10)
+
+  const totalCents = (euros * 100) + cents
+  return { cents: totalCents }
+}
+
+const computedTotalReceived = computed(() => {
+  if (!selectedTable.value) return '0.00'
+  let amount = 0
+  if (checkoutTab.value === 'complete') {
+    amount = mesasStore.getTableRemainingCents(selectedTable.value.id) / 100
+  } else {
+    amount = parseFloat(paymentAmountInput.value) || 0
+  }
+  const tipRes = parseTipInput(tipInput.value)
+  const tip = tipRes.error ? 0 : tipRes.cents / 100
+  return (amount + tip).toFixed(2)
+})
+
+const isPartialClearingBalance = computed(() => {
+  if (!selectedTable.value) return false
+  const remaining = mesasStore.getTableRemainingCents(selectedTable.value.id)
+  const parseRes = parseAmountInput(paymentAmountInput.value)
+  if (parseRes.error) return false
+  return parseRes.cents === remaining
+})
 
 const decrementPeopleCount = () => {
   if (splitPeopleInput.value > 2) {
@@ -2442,6 +2619,7 @@ watch(selectedTable, () => {
   paymentAmountInput.value = ''
   paymentAmountInputError.value = ''
   resetBizum()
+  resetTip()
 
   showDiscountForm.value = false
   discountFormValue.value = ''
@@ -2453,6 +2631,7 @@ watch(selectedTable, () => {
 
 watch(checkoutTab, () => {
   resetBizum()
+  resetTip()
 })
 
 // Interactive Ficha Modal states

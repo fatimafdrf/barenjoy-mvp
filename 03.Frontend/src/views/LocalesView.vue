@@ -15,14 +15,22 @@
         </div>
 
         <!-- Live Total Sales Counter -->
-        <div class="flex items-center gap-4">
-          <div class="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2 text-center shadow-inner">
+        <div class="flex items-center gap-3">
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl px-3 py-1.5 text-center shadow-inner">
             <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Ventas de Hoy</span>
-            <span class="text-sm font-black text-[#9235DF] block mt-0.5">{{ totalSalesToday.toFixed(2) }} €</span>
+            <span class="text-xs font-black text-[#9235DF] block mt-0.5">{{ totalSalesToday.toFixed(2) }} €</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl px-3 py-1.5 text-center shadow-inner">
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Propinas de Hoy</span>
+            <span class="text-xs font-black text-amber-600 block mt-0.5">{{ totalPropinasToday.toFixed(2) }} €</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-100 rounded-2xl px-3 py-1.5 text-center shadow-inner">
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Total Recibido</span>
+            <span class="text-xs font-black text-emerald-600 block mt-0.5">{{ totalReceivedToday.toFixed(2) }} €</span>
           </div>
           <button
             @click="showPrintReceiptModal(null)"
-            class="px-4 py-2 border border-slate-200 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-2"
+            class="px-3 py-2 border border-slate-200 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 font-bold text-[10px] rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
           >
             <i class="pi pi-print"></i>
             <span>Arqueo Diario</span>
@@ -1009,5 +1017,13 @@ const forceCloseTable = () => {
 // Group Sales Statistics computation
 const totalSalesToday = computed(() => {
   return mesasStore.completedOrders.reduce((sum, item) => sum + item.total, 0)
+})
+
+const totalPropinasToday = computed(() => {
+  return mesasStore.completedOrders.reduce((sum, item) => sum + (item.tipCents ?? 0), 0) / 100
+})
+
+const totalReceivedToday = computed(() => {
+  return totalSalesToday.value + totalPropinasToday.value
 })
 </script>
