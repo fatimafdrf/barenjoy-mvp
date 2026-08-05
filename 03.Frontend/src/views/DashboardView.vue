@@ -196,19 +196,19 @@
             <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
 
               <!-- Tarjetas KPI -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
                 <div
                   v-for="card in opKpiCards"
                   :key="card.key"
-                  class="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between h-28"
+                  class="py-5 px-6 bg-white rounded-2xl border border-slate-200 flex flex-col justify-between min-h-[112px] space-y-3"
                 >
-                  <div class="flex items-center justify-between text-slate-400">
-                    <span class="text-[10px] font-bold uppercase tracking-wider">{{ card.label }}</span>
-                    <i :class="['pi text-sm', card.icon]"></i>
+                  <div class="flex items-center justify-between text-slate-500">
+                    <span class="text-xs font-semibold uppercase tracking-wider">{{ card.label }}</span>
+                    <i :class="['pi text-base', card.icon]" aria-hidden="true"></i>
                   </div>
                   <div>
-                    <h5 :class="['text-2xl font-black', card.valueClass]">{{ card.value }}</h5>
-                    <p class="text-[9px] text-slate-400 font-medium">{{ card.helper }}</p>
+                    <p :class="['text-2xl font-black', card.valueClass]">{{ card.value }}</p>
+                    <p class="text-xs text-slate-500 font-medium">{{ card.helper }}</p>
                   </div>
                 </div>
               </div>
