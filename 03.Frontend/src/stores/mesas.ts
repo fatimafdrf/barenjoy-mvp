@@ -664,25 +664,79 @@ export const useMesasStore = defineStore('mesas', () => {
     return false
   }
 
-  const addItemsToTableOrder = (id: string, itemsToAdd: Array<{ id: string; name: string; price: number; category: any; quantity: number; notes?: string; productionStation?: 'BAR' | 'KITCHEN' }>) => {
+  const addItemsToTableOrder = (
+    id: string,
+    itemsToAdd: Array<{
+      id: string;
+      name: string;
+      price: number;
+      category: any;
+      quantity: number;
+      notes?: string;
+      productionStation?: 'BAR' | 'KITCHEN';
+    }>
+  ) => {
     const table = tables.value.find(t => t.id === id)
     if (table) {
       if (table.status === 'free') {
         table.status = 'occupied'
       }
       const cartaStore = useCartaStore()
+
       itemsToAdd.forEach(item => {
+        // Normalise notes for comparison
         const normalizedNote = item.notes?.trim() || ''
-        const existing = table.orders.find(o =>
-          o.menuItemId === item.id &&
-          o.status === 'pending' &&
-          (o.notes?.trim() || '') === normalizedNote
+
+        // ---- 1️⃣ Validate incoming quantity ----
+        if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+          return // skip this item
+        }
+
+        // ---- 2️⃣ Retrieve the related menu item ----
+        const menuItem = cartaStore.menuItems.find(m => m.id === item.id)
+        if (!menuItem) {
+          return // product does not exist
+        }
+
+        // ---- 3️⃣ Check availability ----
+        if (!menuItem.available) {
+          return // product not available
+        }
+
+        // ---- 4️⃣ Stock control validation (if enabled) ----
+        if (menuItem.controlStock) {
+          if (typeof menuItem.stock !== 'number' || menuItem.stock < 0) {
+            return // invalid stock definition
+          }
+          // Calculate currently active quantity (exclude cancelled lines – none exist)
+          const activeQty = table.orders
+            .filter(o => o.menuItemId === item.id && o.status !== 'cancelled')
+            .reduce((sum, o) => sum + o.quantity, 0)
+          const resultQty = activeQty + item.quantity
+          if (resultQty > menuItem.stock) {
+            return // would exceed available stock
+          }
+        }
+
+        // ---- 5️⃣ Find existing pending line with same notes ----
+        const existing = table.orders.find(
+          o =>
+            o.menuItemId === item.id &&
+            o.status === 'pending' &&
+            (o.notes?.trim() || '') === normalizedNote
         )
+
         if (existing) {
+          // Increment quantity (already passed validation)
           existing.quantity += item.quantity
         } else {
-          const menuItem = cartaStore.menuItems.find(m => m.id === item.id)
-          const station = item.productionStation ?? menuItem?.productionStation ?? (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+          // Determine production station
+          const station =
+            item.productionStation ??
+            menuItem.productionStation ??
+            (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+
+          // Create a new order line
           table.orders.push({
             id: 'o-' + Math.random().toString(36).substr(2, 9),
             menuItemId: item.id,
@@ -697,6 +751,8 @@ export const useMesasStore = defineStore('mesas', () => {
           })
         }
       })
+
+      // Persist changes
       saveTables()
     }
   }
