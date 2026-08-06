@@ -87,7 +87,7 @@ const routes = [
         path: 'carta',
         name: 'carta',
         component: () => import('../views/CartaView.vue'),
-        meta: { title: 'Carta & Menú - Aveniq', roles: ['admin', 'waiter'] }
+        meta: { title: 'Carta & Menú - Aveniq', roles: ['admin'] }
       },
       {
         path: 'cocina',

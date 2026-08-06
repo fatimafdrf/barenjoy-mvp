@@ -145,6 +145,13 @@
             <!-- Duplicate / Delete -->
             <div class="flex gap-2">
               <button
+                @click="startEdit(item)"
+                class="p-2 bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white border border-amber-200 hover:border-transparent rounded-xl transition-all active:scale-95 cursor-pointer"
+                title="Editar Producto"
+              >
+                <i class="pi pi-pencil text-xs"></i>
+              </button>
+              <button
                 @click="duplicateProduct(item)"
                 class="p-2 bg-slate-50 hover:bg-app-primary text-slate-500 hover:text-white border border-slate-200 hover:border-transparent rounded-xl transition-all active:scale-95 cursor-pointer"
                 title="Duplicar Producto"
@@ -184,8 +191,8 @@
           </button>
 
           <h3 class="text-xl font-bold text-app-text flex items-center gap-2">
-            <i class="pi pi-plus text-app-primary"></i>
-            <span>Nuevo Producto</span>
+            <i :class="['pi', editingProductId ? 'pi-pencil' : 'pi-plus', 'text-app-primary']"></i>
+            <span>{{ editingProductId ? 'Editar Producto' : 'Nuevo Producto' }}</span>
           </h3>
           <p class="text-xs text-app-text-muted">Inserte un plato o bebida en el catálogo general.</p>
 
@@ -368,7 +375,7 @@
                 type="submit"
                 class="flex-1 py-3 text-sm font-bold rounded-xl bg-app-primary hover:bg-app-primary-hover text-white transition-colors cursor-pointer"
               >
-                Añadir Producto
+                {{ editingProductId ? 'Actualizar Producto' : 'Añadir Producto' }}
               </button>
             </div>
           </form>
@@ -387,6 +394,7 @@ const cartaStore = useCartaStore()
 const activeCategory = ref<string>('all')
 const showAddDialog = ref(false)
 const searchQuery = ref('')
+const editingProductId = ref<string | null>(null)
 const activeAvailability = ref<'all' | 'available' | 'unavailable'>('all')
 
 const availabilityFilters = [
@@ -516,11 +524,29 @@ const duplicateProduct = (item: any) => {
   cartaStore.addItem(duplicate)
 }
 
+const startEdit = (item: any) => {
+  editingProductId.value = item.id
+  newForm.value = {
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    category: item.category,
+    allergens: [...item.allergens],
+    available: item.available,
+    controlStock: item.controlStock || false,
+    stock: item.controlStock ? item.stock ?? 0 : 0,
+    minStock: item.controlStock ? item.minStock ?? 0 : 0,
+    productionStation: item.productionStation || (item.category === 'bebidas' ? 'BAR' : 'KITCHEN')
+  }
+  showAddDialog.value = true
+}
+
 const closeAddDialog = () => {
   showAddDialog.value = false
   formErrors.value = []
   imageError.value = ''
   selectedFileName.value = ''
+  editingProductId.value = null
   newForm.value = {
     name: '',
     description: '',
@@ -571,18 +597,33 @@ const saveProduct = () => {
   }
 
   // Guardar producto
-  cartaStore.addItem({
-    name: newForm.value.name.trim(),
-    description: newForm.value.description.trim(),
-    price: newForm.value.price,
-    category: newForm.value.category,
-    allergens: newForm.value.allergens,
-    available: newForm.value.available,
-    controlStock: newForm.value.controlStock,
-    stock: newForm.value.controlStock ? newForm.value.stock : undefined,
-    minStock: newForm.value.controlStock ? newForm.value.minStock : undefined,
-    productionStation: newForm.value.productionStation
-  })
+  if (editingProductId.value) {
+    cartaStore.updateItem(editingProductId.value, {
+      name: newForm.value.name.trim(),
+      description: newForm.value.description.trim(),
+      price: newForm.value.price,
+      category: newForm.value.category,
+      allergens: newForm.value.allergens,
+      available: newForm.value.available,
+      controlStock: newForm.value.controlStock,
+      stock: newForm.value.controlStock ? newForm.value.stock : undefined,
+      minStock: newForm.value.controlStock ? newForm.value.minStock : undefined,
+      productionStation: newForm.value.productionStation
+    })
+  } else {
+    cartaStore.addItem({
+      name: newForm.value.name.trim(),
+      description: newForm.value.description.trim(),
+      price: newForm.value.price,
+      category: newForm.value.category,
+      allergens: newForm.value.allergens,
+      available: newForm.value.available,
+      controlStock: newForm.value.controlStock,
+      stock: newForm.value.controlStock ? newForm.value.stock : undefined,
+      minStock: newForm.value.controlStock ? newForm.value.minStock : undefined,
+      productionStation: newForm.value.productionStation
+    })
+  }
 
   // Reset & close
   closeAddDialog()

@@ -710,7 +710,7 @@ export const useMesasStore = defineStore('mesas', () => {
           }
           // Calculate currently active quantity (exclude cancelled lines – none exist)
           const activeQty = table.orders
-            .filter(o => o.menuItemId === item.id && o.status !== 'cancelled')
+            .filter(o => o.menuItemId === item.id)
             .reduce((sum, o) => sum + o.quantity, 0)
           const resultQty = activeQty + item.quantity
           if (resultQty > menuItem.stock) {
